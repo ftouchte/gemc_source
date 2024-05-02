@@ -4,6 +4,7 @@
 
 #include <math.h>
 #include <random>
+#include <fstream>
 
 #include <CCDB/Calibration.h>
 #include <CCDB/Model/Assignment.h>
@@ -53,13 +54,27 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	int sector    = 0;
 	int layer     = 10 * identity[0].id + identity[1].id ; // 10*superlayer + layer
 	int component = identity[2].id;
-
+	
+	// felix	
+	std::ofstream output("output.txt",std::ofstream::app);
+	// end felix
+	
 	if(aHit->isBackgroundHit == 1) {
 
 		double totEdep  = aHit->GetEdep()[0];
 		double stepTime = aHit->GetTime()[0];
 		double tdc      = stepTime;
-
+		
+		// felix
+		if (!output.fail()){
+			if (hitn == 1) {
+				output << "# ------- NEW EVENT " << std::endl;
+        		}
+			output << "hitn  b : " << hitn << std::endl;
+			output << "time  b : " << stepTime << std::endl;
+			output << "nstep b : " << 1 << std::endl;
+		}
+		// end felix
 		dgtz["hitn"]      = hitn;
 		dgtz["sector"]    = sector;
 		dgtz["layer"]     = layer;
@@ -91,7 +106,32 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	vector<G4ThreeVector> mom         = aHit->GetMoms();
 	vector<double>        E           = aHit->GetEs();
 	
-	
+	// felix                
+	if (!output.fail()){
+		if (hitn == 1) {
+		        // print it in output.txt 
+		        output << "# ------- NEW EVENT  " << std::endl;
+        	}
+		output << "hitn     : " << hitn << std::endl;
+		output << "time     : " << stepTime[0] << std::endl;
+		output << "nsteps   : " << tInfos.nsteps << std::endl;	
+	}
+	output.close();
+		
+	std::ofstream signal("signal.txt",std::ios::app);
+	if (tInfos.nsteps > 15){	
+		//PrintSignal(aHit, "ahdc_signal");
+		if (!signal.fail()){
+			for (unsigned int i=0;i<tInfos.nsteps;i++) {
+				signal << stepTime.at(i) << " " << Edep.at(i) << std::endl;
+			}
+			signal << std::endl;
+		}
+		signal.close();
+	}
+
+	// end felix
+
 //	double signal_t = 0.0;
 	double signal_tTimesEdep = 0.0;
 	
@@ -394,5 +434,37 @@ void ahdc_HitProcess::initWithRunNumber(int runno)
 ahdcConstants ahdc_HitProcess::atc = initializeAHDCConstants(-1);
 
 
+// Functions added by Felix Touchte Codjo
 
+/*
+#include "TCanvas.h"
+#include "TGraph.h"
+#include "TAxis.h"
+
+
+void ahdc_HitProcess::PrintSignal(MHit* aHit, string filename){
+	vector<double>        stepTime    = aHit->GetTime();
+	vector<G4double>      Edep        = aHit->GetEdep();
+	int nsteps = Edep.size();
+	double* x = new double[nsteps];
+	double* y = new double[nsteps];
+	for (int i=0;i<nsteps;i++){
+		x[i] = stepTime.at(i);
+		y[i] = Edep.at(i);
+	}
+	TCanvas* canvas = new TCanvas("c","c title",1366,768);
+	TGraph* signal = new TGraph(nsteps,x,y);
+	signal->SetTitle("AHDC signal");
+	signal->GetXaxis()->SetTitle("time");
+        signal->GetXaxis()->SetTitleSize(0.05);
+        signal->GetYaxis()->SetTitle("Edep (ADC)");
+        signal->GetYaxis()->SetTitleSize(0.05);
+        signal->Draw();
+	
+	string path = "./output/" + filename + ".pdf";
+	canvas->Print(path.c_str());
+	delete signal;
+	delete canvas;
+
+}*/
 

@@ -3,7 +3,7 @@
 
 // gemc headers
 #include "HitProcess.h"
-
+#include <string>
 
 class ahdcConstants
 {
@@ -81,6 +81,11 @@ public:
 	
 	map<int, double> timeShift_map;
 	double shift_t;
+
+public:
+	// added by Felix
+	//void PrintSignal(MHit*, string);
+	
 	
 };
 
