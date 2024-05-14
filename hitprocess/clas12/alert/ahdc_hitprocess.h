@@ -84,12 +84,14 @@ public:
 
 public:
 	// added by Felix
-	//void PrintSignal(MHit*, string);
-	
-	
+	void ShowMeHitContent(MHit* aHit, int hitn);	
+	void GetDriftTime(MHit* aHit, int hitn, double & doca, double & time);
+	double Convert2ADC(double edep, double gain, double ADC_max);	
 };
 
-
+namespace futils {
+	bool cart2polar3D(double x, double y, double z, double & rho, double & theta, double & phi);
+}
 
 #endif
 
