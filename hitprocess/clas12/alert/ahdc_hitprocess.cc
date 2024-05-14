@@ -497,7 +497,8 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	hist_Edep->GetYaxis()->SetTitle("#nstep");
 	hist_Edep->GetYaxis()->SetTitleSize(0.05);
 	hist_Edep->Draw();
-	canvas1->Print(TString::Format("./output/hist_Edep_%s.pdf",MyUniqueId.Data()));
+	if (Edep_size > 10)
+		canvas1->Print(TString::Format("./output/hist_Edep_%s.pdf",MyUniqueId.Data()));
 	delete hist_Edep; delete canvas1;
 	
 	// **************************
@@ -510,7 +511,8 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	hist_stepTime->GetYaxis()->SetTitle("#nstep");
 	hist_stepTime->GetYaxis()->SetTitleSize(0.05);
 	hist_stepTime->Draw();
-	canvas2->Print(TString::Format("./output/hist_stepTime_%s.pdf",MyUniqueId.Data()));
+	if (tsize > 10)
+		canvas2->Print(TString::Format("./output/hist_stepTime_%s.pdf",MyUniqueId.Data()));
 	delete hist_stepTime; delete canvas2;
 	
 	// *********************************************************
@@ -576,7 +578,8 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
         oy->SetTitle("y (mm)");
 	oy->SetTitleSize(0.03);
         oy->Draw();
-	canvas3->Print(TString::Format("./output/Lpos_cart_%s.pdf",MyUniqueId.Data()));
+	if (nsteps > 10)
+		canvas3->Print(TString::Format("./output/Lpos_cart_%s.pdf",MyUniqueId.Data()));
 	delete graph1; delete ox; delete oy; delete canvas3;
 	// *****************
 	// In  polar plan 
@@ -593,11 +596,12 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	grP->GetPolargram()->SetRadialLabelSize(0.03);
 	grP->GetPolargram()->SetPolarLabelSize(0.04);
 	grP->SetMinRadial(0);
-	canvas4->Print(TString::Format("./output/Lpos_polar_%s.pdf",MyUniqueId.Data()));
+	if (nsteps > 10)
+		canvas4->Print(TString::Format("./output/Lpos_polar_%s.pdf",MyUniqueId.Data()));
 	delete grP; delete canvas4;
 	// ***************************
 	// hist_z 
-	// **************************
+	// ***************************
 	TH1D* hist_z = new TH1D("hist_z","hist_z",100, zmin,zmax);
 	for (int i=0;i<nsteps;i++) hist_z->Fill(z[i]);
 	TCanvas* canvas5 = new TCanvas("c5","c5 title",1366,768);
@@ -607,8 +611,69 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	hist_z->GetYaxis()->SetTitle("");
 	hist_z->GetYaxis()->SetTitleSize(0.05);
 	hist_z->Draw();
-	canvas5->Print(TString::Format("./output/hist_z_%s.pdf",MyUniqueId.Data()));
+	if (nsteps > 10)
+		canvas5->Print(TString::Format("./output/hist_z_%s.pdf",MyUniqueId.Data()));
 	delete hist_z; delete canvas5;
+	// ***************************
+	// hist_x
+	// ***************************
+	TH1D* hist_x = new TH1D("hist_x","hist_x",100, xmin,xmax);
+	for (int i=0;i<nsteps;i++) hist_x->Fill(x[i]);
+	TCanvas* canvas6 = new TCanvas("c6","c6 title",1366,768);
+	gStyle->SetOptStat("nemruo");
+	hist_x->GetXaxis()->SetTitle("x");
+	hist_x->GetXaxis()->SetTitleSize(0.05);
+	hist_x->GetYaxis()->SetTitle("");
+	hist_x->GetYaxis()->SetTitleSize(0.05);
+	hist_x->Draw();
+	if (nsteps > 10)
+		canvas6->Print(TString::Format("./output/hist_x_%s.pdf",MyUniqueId.Data()));
+	delete hist_x; delete canvas6;
+	// ***************************
+	// hist_y
+	// ***************************
+	TH1D* hist_y = new TH1D("hist_y","hist_y",100, ymin,ymax);
+	for (int i=0;i<nsteps;i++) hist_y->Fill(y[i]);
+	TCanvas* canvas7 = new TCanvas("c7","c7 title",1366,768);
+	gStyle->SetOptStat("nemruo");
+	hist_y->GetXaxis()->SetTitle("y");
+	hist_y->GetXaxis()->SetTitleSize(0.05);
+	hist_y->GetYaxis()->SetTitle("");
+	hist_y->SetTitleSize(0.05);
+	hist_y->Draw();
+	if (nsteps > 10)
+		canvas7->Print(TString::Format("./output/hist_y_%s.pdf",MyUniqueId.Data()));
+	delete hist_y; delete canvas7;
+	// ***************************
+	// hist_radius
+	// ***************************
+	TH1D* hist_r = new TH1D("hist_r","hist_r",100, 0, 50);
+	for (int i=0;i<nsteps;i++) hist_r->Fill(radius[i]);
+	TCanvas* canvas8 = new TCanvas("c8","c8 title",1366,768);
+	gStyle->SetOptStat("nemruo");
+	hist_r->GetXaxis()->SetTitle("radius");
+	hist_r->GetXaxis()->SetTitleSize(0.05);
+	hist_r->GetYaxis()->SetTitle("");
+	hist_r->SetTitleSize(0.05);
+	hist_r->Draw();
+	if (nsteps > 10)
+		canvas8->Print(TString::Format("./output/hist_r_%s.pdf",MyUniqueId.Data()));
+	delete hist_r; delete canvas8;
+	// ***************************
+	// hist_phi
+	// ***************************
+	TH1D* hist_phi = new TH1D("hist_phi","hist_phi",100, 0,2*PI);
+	for (int i=0;i<nsteps;i++) hist_phi->Fill(phi[i]);
+	TCanvas* canvas9 = new TCanvas("c9","c9 title",1366,768);
+	gStyle->SetOptStat("nemruo");
+	hist_phi->GetXaxis()->SetTitle("radius");
+	hist_phi->GetXaxis()->SetTitleSize(0.05);
+	hist_phi->GetYaxis()->SetTitle("");
+	hist_phi->SetTitleSize(0.05);
+	hist_phi->Draw();
+	if (nsteps > 10)
+		canvas9->Print(TString::Format("./output/hist_phi_%s.pdf",MyUniqueId.Data()));
+	delete hist_phi; delete canvas9;
 
 }
 
