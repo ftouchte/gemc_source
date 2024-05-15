@@ -492,7 +492,7 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	// **************************
 	TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768);
 	gStyle->SetOptStat("nemruo");
-	hist_Edep->GetXaxis()->SetTitle("Edep (keV)");
+	hist_Edep->GetXaxis()->SetTitle("Edep [keV]");
 	hist_Edep->GetXaxis()->SetTitleSize(0.05);
 	hist_Edep->GetYaxis()->SetTitle("#nstep");
 	hist_Edep->GetYaxis()->SetTitleSize(0.05);
@@ -506,7 +506,7 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	// **************************
 	TCanvas* canvas2 = new TCanvas("c2","c2 title",1366,768);
 	gStyle->SetOptStat("nemruo");
-	hist_stepTime->GetXaxis()->SetTitle("stepTime (ns)");
+	hist_stepTime->GetXaxis()->SetTitle("stepTime [ns]");
 	hist_stepTime->GetXaxis()->SetTitleSize(0.05);
 	hist_stepTime->GetYaxis()->SetTitle("#nstep");
 	hist_stepTime->GetYaxis()->SetTitleSize(0.05);
@@ -568,14 +568,14 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
         ox->SetTickSize(0.009);
         ox->SetLabelFont(42);
         ox->SetLabelSize(0.025);
-        ox->SetTitle("x (mm)");
+        ox->SetTitle("x [mm]");
 	ox->SetTitleSize(0.03);
         ox->Draw();
 	TGaxis* oy = new TGaxis(0,-xpad,0,xpad,-xpad,xpad,510,"+-S>");
         oy->SetTickSize(0.009);
         oy->SetLabelFont(42);
         oy->SetLabelSize(0.025);
-        oy->SetTitle("y (mm)");
+        oy->SetTitle("y [mm]");
 	oy->SetTitleSize(0.03);
         oy->Draw();
 	if (nsteps > 10)
@@ -606,7 +606,7 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	for (int i=0;i<nsteps;i++) hist_z->Fill(z[i]);
 	TCanvas* canvas5 = new TCanvas("c5","c5 title",1366,768);
 	gStyle->SetOptStat("nemruo");
-	hist_z->GetXaxis()->SetTitle("z");
+	hist_z->GetXaxis()->SetTitle("z [mm]");
 	hist_z->GetXaxis()->SetTitleSize(0.05);
 	hist_z->GetYaxis()->SetTitle("");
 	hist_z->GetYaxis()->SetTitleSize(0.05);
@@ -621,7 +621,7 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	for (int i=0;i<nsteps;i++) hist_x->Fill(x[i]);
 	TCanvas* canvas6 = new TCanvas("c6","c6 title",1366,768);
 	gStyle->SetOptStat("nemruo");
-	hist_x->GetXaxis()->SetTitle("x");
+	hist_x->GetXaxis()->SetTitle("x [mm]");
 	hist_x->GetXaxis()->SetTitleSize(0.05);
 	hist_x->GetYaxis()->SetTitle("");
 	hist_x->GetYaxis()->SetTitleSize(0.05);
@@ -636,7 +636,7 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	for (int i=0;i<nsteps;i++) hist_y->Fill(y[i]);
 	TCanvas* canvas7 = new TCanvas("c7","c7 title",1366,768);
 	gStyle->SetOptStat("nemruo");
-	hist_y->GetXaxis()->SetTitle("y");
+	hist_y->GetXaxis()->SetTitle("y [mm]");
 	hist_y->GetXaxis()->SetTitleSize(0.05);
 	hist_y->GetYaxis()->SetTitle("");
 	hist_y->SetTitleSize(0.05);
@@ -651,7 +651,7 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	for (int i=0;i<nsteps;i++) hist_r->Fill(radius[i]);
 	TCanvas* canvas8 = new TCanvas("c8","c8 title",1366,768);
 	gStyle->SetOptStat("nemruo");
-	hist_r->GetXaxis()->SetTitle("radius");
+	hist_r->GetXaxis()->SetTitle("radius [mm]");
 	hist_r->GetXaxis()->SetTitleSize(0.05);
 	hist_r->GetYaxis()->SetTitle("");
 	hist_r->SetTitleSize(0.05);
@@ -666,7 +666,7 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	for (int i=0;i<nsteps;i++) hist_phi->Fill(phi[i]);
 	TCanvas* canvas9 = new TCanvas("c9","c9 title",1366,768);
 	gStyle->SetOptStat("nemruo");
-	hist_phi->GetXaxis()->SetTitle("radius");
+	hist_phi->GetXaxis()->SetTitle("phi [rads]");
 	hist_phi->GetXaxis()->SetTitleSize(0.05);
 	hist_phi->GetYaxis()->SetTitle("");
 	hist_phi->SetTitleSize(0.05);
@@ -677,16 +677,75 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 
 }
 
-void ahdc_HitProcess::GetDriftTime(MHit* aHit, int hitn, double & doca, double & time){
-	// To Be Fill	
+
+double ahdc_HitProcess::ComputeDoca(MHit* aHit){
+	vector<G4ThreeVector> Lpos        = aHit->GetLPos();
+	int nsteps = Lpos.size();
+	double LposX, LposY, LposZ;
+	
+	double X_sigwire_top = -150; // [mm]
+	double Y_sigwire_top = 0;
+	double Z_sigwire_top = 0; 
+	double X_sigwire_bot = 150; // [mm]
+	double Y_sigwire_bot=0;
+	double Z_sigwire_bot=0;
+
+	// Compute Y_sigwire_top
+	// Compute Z_sigwire_top
+	// Compute Y_sigwire_bot
+	// Compute Z_sigwire_bot
+	
+	// Triangle abh
+	// a (sigwire_top), b (sigwire_bot), h (hit position)
+	// H_abh is the distance between hit and the wire and perpendicular to the wire
+	double L_ab, L_ah, L_bh, H_abh;
+	// Compute the distance between top and bottom of the wire
+	L_ab = sqrt(pow(X_sigwire_top-X_sigwire_bot,2) + pow(Y_sigwire_top-Y_sigwire_bot,2) + pow(Z_sigwire_top-Z_sigwire_bot,2));
+	
+	// Initialise doca
+	double doca = DBL_MAX;
+	for (int i=0;i<nsteps;i++) {
+		// Load current hit positions
+		LposX = Lpos[i].x();
+		LposY = Lpos[i].y();
+		LposZ = Lpos[i].z();
+		// Compute distance
+		L_ah = sqrt(pow(X_sigwire_top-LposX,2) + pow(Y_sigwire_top-LposY,2) + pow(Z_sigwire_top-LposZ,2));
+		L_bh = sqrt(pow(X_sigwire_bot-LposX,2) + pow(Y_sigwire_bot-LposY,2) + pow(Z_sigwire_bot-LposZ,2));
+		// Compute the height of a triangular (see documentation for the demonstration the formula)
+		H_abh = L_ah*sqrt(1 - pow((L_ah*L_ah + L_ab*L_ab - L_bh*L_bh)/(2*L_ah*L_ab),2));
+		if (doca < H_abh) doca = H_abh;
+	}
+
+	return doca;
 }
 
-double ahdc_HitProcess::Convert2ADC(double edep, double gain, double ADC_max){
+double ahdc_HitProcess::ComputeDriftTime(MHit* aHit, double doca, double driftVelocity){
+	vector<double>        stepTime    = aHit->GetTime();
+	int nsteps = stepTime.size();
+	double time = 0;
+	for (int i=0;i<nsteps;i++){
+		time += stepTime[i];
+	}
+	time = time + doca/driftVelocity;
+	return time;
+}
+
+double ahdc_HitProcess::ComputeEdep(MHit* aHit){
+	vector<G4double>      Edep        = aHit->GetEdep();
+	int nsteps = Edep.size();
+	double etot = 0;
+	for (int i=0;i<nsteps;i++){
+		etot += Edep[i];
+	}
+	return etot;
+}
+
+double ahdc_HitProcess::ComputeADC(double Edep, double ADC_gain, double ADC_max){
 	// edep is in [keV]
-	double ADC = edep*gain;
-	return (ADC < ADC_max) ? ADC : ADC_max;
+	double adc = Edep*ADC_gain;
+	return (adc < ADC_max) ? adc : ADC_max;
 }
-
 
 
 namespace futils {

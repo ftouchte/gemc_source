@@ -84,9 +84,12 @@ public:
 
 public:
 	// added by Felix
-	void ShowMeHitContent(MHit* aHit, int hitn);	
-	void GetDriftTime(MHit* aHit, int hitn, double & doca, double & time);
-	double Convert2ADC(double edep, double gain, double ADC_max);	
+	void ShowMeHitContent(MHit* aHit, int hitn);
+	double ComputeDoca(MHit* aHit);
+	double ComputeDriftTime(MHit* aHit, double doca, double driftVelocity);
+	double ComputeEdep(MHit* aHit);
+	double ComputeADC(double Edep, double ADC_gain, double ADC_max);
+	
 };
 
 namespace futils {
