@@ -84,11 +84,11 @@ public:
 
 public:
 	// added by Felix
-	void ShowMeHitContent(MHit* aHit, int hitn);
-	double ComputeDoca(MHit* aHit);
-	double ComputeDriftTime(MHit* aHit, double doca, double driftVelocity);
-	double ComputeEdep(MHit* aHit);
-	double ComputeADC(double Edep, double ADC_gain, double ADC_max);
+	void 	ShowMeHitContent	(MHit* aHit, int hitn);
+	void 	ComputeDoca		(MHit* aHit, double & doca, std::vector<double> & Height);
+	void 	ComputeDriftTime	(MHit* aHit, const double & doca, const std::vector<double> & Height, std::vector<double> & Time);
+	double 	ComputeEdep		(MHit* aHit);
+	double 	ComputeADC		(double Edep, double ADC_gain, double ADC_max);
 	
 };
 
@@ -96,7 +96,97 @@ namespace futils {
 	bool cart2polar3D(double x, double y, double z, double & rho, double & theta, double & phi);
 }
 
+#include "Math/PdfFuncMathCore.h"
+
+class ahdcSignal {
+	private :
+		//MHit * aHit;
+		//int hitn;
+		std::vector<double> Location;
+		std::vector<double> Amplitude;
+		std::vector<double> Width;
+		std::vector<int> Shape; // allow to have a specific shape associated to each step (ex: gaussians with different std_dev )
+	public :
+		/*ahdcSignal(MHit * aHit_, int hitn_){
+			aHit = aHit_;
+			hitn = hitn;
+			// to be complete ...
+		}*/
+		ahdcSignal(std::vector<double> Location_, std::vector<double> Amplitude_, std::vector<double> Width_, std::vector<int> Shape_){
+			Location = Location_;
+			Amplitude = Amplitude_;
+			Width = Width_;
+			Shape = Shape_;
+		}
+		ahdcSignal() = default;
+		ahdcSignal(const ahdcSignal & obj){
+			Location = obj.Location;
+			Amplitude = obj.Amplitude;
+			Width = obj.Width;
+			Shape = obj.Shape;
+		}
+		~ahdcSignal(){;}
+		void Add(double time, double amplitude, double width, int shape){
+			Location.push_back(time);
+			Amplitude.push_back(amplitude);
+			Width.push_back(width);
+			Shape.push_back(shape);
+		}
+		std::vector<double>                     GetAmplitude()	{return Amplitude;}
+		std::vector<double>                     GetLocation() 	{return Location;}
+		std::vector<double>                     GetWidth()	{return Width;}
+		std::vector<int>                        GetShape()	{return Shape;}
+		void SetAmplitude(std::vector<double> Amplitude_) 	{Amplitude = Amplitude_;}
+		void SetLocation(std::vector<double> Location_)		{Location = Location_;}
+		void SetWidth(std::vector<double> Width_)		{Width = Width_;}
+		void SetShape(std::vector<int> Shape_)			{Shape = Shape_;}
+		bool is_safe(){
+			int n1 = Location.size();
+			int n2 = Amplitude.size();
+			int n3 = Width.size();
+			int n4 = Shape.size();
+			return (n1 == n2) && (n2 == n3) && (n3 == n4);
+		}
+		// The reason why this class has been created
+		double operator()(double x){
+			double res = 0;
+			int nLoc = Location.size();
+			for (int l=0;l<nLoc;l++){
+				if (Shape.at(l) == 0) {
+					res += Amplitude.at(l)*ROOT::Math::gaussian_pdf(x,Width.at(l),Location.at(l));
+				}
+				else if (Shape.at(l) == 1){
+					res += Amplitude.at(l)*ROOT::Math::landau_pdf(x,Width.at(l),Location.at(l));
+				}
+			}
+			return res;
+		}
+		void PrintBeforeProcessing();
+		void PrintAllShapes(double tmin, double tmax, int Npts);
+		void PrintAfterProcessing(double tmin, double tmax, int Npts);
+
+};
+
+
+
+
 #endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

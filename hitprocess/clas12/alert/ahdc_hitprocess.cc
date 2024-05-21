@@ -328,8 +328,8 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	adc_energy = E_tot_wire * EYld;
 	
 	// Just to test, time is linear with doca
-	double a = 5.0;
-	double b = 5.0;
+	//double a = 5.0;
+	//double b = 5.0;
 	// double time = a*doca+b + signal_tTimesEdep/E_tot_wire;
 	double time = signal_tTimesEdep/E_tot_wire;
 //	double signal = 0.0;
@@ -465,6 +465,8 @@ ahdcConstants ahdc_HitProcess::atc = initializeAHDCConstants(-1);
 #include "TH1.h"
 #include "TGraphPolar.h"
 #include "TGaxis.h"
+#include <time.h>
+
 
 void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 	
@@ -692,23 +694,59 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 }
 
 
-double ahdc_HitProcess::ComputeDoca(MHit* aHit){
+void ahdc_HitProcess::ComputeDoca(MHit* aHit, double & doca, std::vector<double> & Height){
 	vector<G4ThreeVector> Lpos        = aHit->GetLPos();
 	int nsteps = Lpos.size();
 	double LposX, LposY, LposZ;
 	
+	// ALERT geometry
 	double X_sigwire_top = -150; // [mm]
 	double Y_sigwire_top = 0;
 	double Z_sigwire_top = 0; 
 	double X_sigwire_bot = 150; // [mm]
 	double Y_sigwire_bot=0;
 	double Z_sigwire_bot=0;
-
-	// Compute Y_sigwire_top
-	// Compute Z_sigwire_top
-	// Compute Y_sigwire_bot
-	// Compute Z_sigwire_bot
 	
+	// Compute Y_sigwire_top, Z_sigwire_top, Y_sigwire_bot, Z_sigwire_bot
+	
+	double xV0 = 0.0;
+	double yV0 = 0.0;
+	double xV3 = 0.0;
+	double yV3 = 0.0;
+	double xV4 = 0.0;
+	double yV4 = 0.0;
+	double xV7 = 0.0;
+	double yV7 = 0.0;
+	double dim_id_2, dim_id_8;
+
+	dim_id_2 = aHit->GetDetector().dimensions[2];
+	dim_id_8 = aHit->GetDetector().dimensions[8];
+
+	yV3 = aHit->GetDetector().dimensions[8];
+	xV3 = aHit->GetDetector().dimensions[7];
+	yV0 = aHit->GetDetector().dimensions[2];
+	xV0 = aHit->GetDetector().dimensions[1];
+
+	yV7 = aHit->GetDetector().dimensions[16];
+	xV7 = aHit->GetDetector().dimensions[15];
+	yV4 = aHit->GetDetector().dimensions[10];
+	xV4 = aHit->GetDetector().dimensions[9];
+	
+	if ( abs(dim_id_2) > abs(dim_id_8)) {
+		// subcell = 1;
+		X_sigwire_top = xV3 + (xV0 - xV3)/2;
+		Y_sigwire_top = yV3 + (yV0 - yV3)/2; // z=-150 mm
+		X_sigwire_bot = xV7 + (xV4 - xV7)/2;
+		Y_sigwire_bot = yV7 + (yV4 - yV7)/2; // z=+150 mm
+	}
+	else {
+		// subcell = 2;
+		X_sigwire_top = xV0 + (xV3 - xV0)/2;
+		Y_sigwire_top = yV0 + (yV3 - yV0)/2; // z=-150 mm
+		X_sigwire_bot = xV4 + (xV7 - xV4)/2;
+		Y_sigwire_bot = yV4 + (yV7 - yV4)/2; // z=+150 mm
+	}
+
 	// Triangle abh
 	// a (sigwire_top), b (sigwire_bot), h (hit position)
 	// H_abh is the distance between hit and the wire and perpendicular to the wire
@@ -717,32 +755,43 @@ double ahdc_HitProcess::ComputeDoca(MHit* aHit){
 	L_ab = sqrt(pow(X_sigwire_top-X_sigwire_bot,2) + pow(Y_sigwire_top-Y_sigwire_bot,2) + pow(Z_sigwire_top-Z_sigwire_bot,2));
 	
 	// Initialise doca
-	double doca = DBL_MAX;
-	for (int i=0;i<nsteps;i++) {
+	doca = DBL_MAX;
+	for (int s=0;s<nsteps;s++) {
 		// Load current hit positions
-		LposX = Lpos[i].x();
-		LposY = Lpos[i].y();
-		LposZ = Lpos[i].z();
+		LposX = Lpos[s].x();
+		LposY = Lpos[s].y();
+		LposZ = Lpos[s].z();
 		// Compute distance
 		L_ah = sqrt(pow(X_sigwire_top-LposX,2) + pow(Y_sigwire_top-LposY,2) + pow(Z_sigwire_top-LposZ,2));
 		L_bh = sqrt(pow(X_sigwire_bot-LposX,2) + pow(Y_sigwire_bot-LposY,2) + pow(Z_sigwire_bot-LposZ,2));
 		// Compute the height of a triangular (see documentation for the demonstration the formula)
 		H_abh = L_ah*sqrt(1 - pow((L_ah*L_ah + L_ab*L_ab - L_bh*L_bh)/(2*L_ah*L_ab),2));
-		if (doca < H_abh) doca = H_abh;
+		if (doca > H_abh) doca = H_abh;
+		Height.at(s) = H_abh;
 	}
 
-	return doca;
 }
 
-double ahdc_HitProcess::ComputeDriftTime(MHit* aHit, double doca, double driftVelocity){
+void ahdc_HitProcess::ComputeDriftTime(MHit* aHit, const double & doca, const std::vector<double> & Height, std::vector<double> & Time){
 	vector<double>        stepTime    = aHit->GetTime();
 	int nsteps = stepTime.size();
-	double time = 0;
-	for (int i=0;i<nsteps;i++){
-		time += stepTime[i];
+	for (int s=0;s<nsteps;s++){
+
+		// docasig is a fit to sigma vs distance plot. A second order pol used for the fit (p0+p1*x+p2*x*x).
+		// drift velocity as a function of distance. pol2 fitted to t vs x plot and drift velocity is derived from the fit (1/(dt/dx)).
+		// both sig vs dist and t vs dist plots are taken from  Lucien Causse's PhD thesis ("Development of a stereo drift chamber for the Jefferson Laboratory ALERT Experiment.").
+		// plots were digitized and then fitted to a pol2. 
+		
+		double driftP1=-16.17;
+		double driftP2=24.81;
+		double docasig = 337.3-210.3*doca+34.7*pow(doca,2);
+		std::default_random_engine dseed(time(0)); //seed
+		std::normal_distribution<double> docadist(doca, docasig);
+		double doca_r =docadist(dseed);
+		double driftVelocity = 1./(driftP1+2.*driftP2*doca_r);  // mm/ns // drift velocity as a function of distance. pol2 fitted to t vs x plot and drift velocity is then extracted from dx/dt, d/dt(p0+p1*x+p2*x^2)=p1+2*p2*x.
+		Time.at(s) = stepTime[s] + Height.at(s)/driftVelocity;
+
 	}
-	time = time + doca/driftVelocity;
-	return time;
 }
 
 double ahdc_HitProcess::ComputeEdep(MHit* aHit){
@@ -777,6 +826,30 @@ namespace futils {
 	}
 
 }
+
+
+void ahdcSignal::PrintBeforeProcessing(){
+	
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
