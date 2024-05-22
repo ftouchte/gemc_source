@@ -125,7 +125,7 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	double width = 0.3*(dT/nsteps); // for example
 	for (int s=0;s<nsteps;s++){
 		int shape_type = rand () % 2;
-		Signal.Add(Time.at(s),Edep.at(s)*1000,0.3, shape_type); // Edep converted in keV
+		Signal.Add(Time.at(s),Edep.at(s)*1000,width, shape_type); // Edep converted in keV
 	}
 	TString filename1, filename2, filename3;
 	filename1.Form("./output/SignalBeforeProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
@@ -134,13 +134,16 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	if (nsteps > 10){
 		if (Signal.is_safe()) { 
 			Signal.PrintBeforeProcessing(filename1);
-			Signal.PrintAllShapes(filename1);
-			Signal.PrintAfterProcessing(filename1);
+			Signal.PrintAllShapes(filename2);
+			Signal.PrintAfterProcessing(filename3);
 			std::cout << "   doca : " << mydoca << std::endl;
 			std::cout << "   Height : " << Height.at(0) << " " << Height.at(1) << " "<< Height.at(2) << " " << std::endl;
 			std::cout << "   velocity : " << MyVelocity  << std::endl;
 			std::cout << "   Time : " << Time.at(0) << " " << Time.at(1) << " "<< Time.at(2) << " " << std::endl;
 			std::cout << "   Edep : " << Edep.at(0)*1000 << " " << Edep.at(1)*1000 << " "<< Edep.at(2)*1000 << " " << std::endl;
+			std::cout << "   width : " << width << std::endl;
+			std::cout << "   Signal.GetShape() : " << Signal.GetShape().at(0) << " " << Signal.GetShape().at(1) << " "<< Signal.GetShape().at(2) << " " << std::endl;
+			std::cout << "   Signal : " << Signal(Time.at(0)) << " " << Signal(Time.at(1)) << " " <<  Signal(Time.at(2)) << " "  << std::endl;
 		}
 	}
 
@@ -1020,7 +1023,7 @@ void ahdcSignal::PrintAllShapes(const char * filename){
 	delete canvas1;
 }
 
-void ahdcSignal::PrintAfterProcessing(filename){
+void ahdcSignal::PrintAfterProcessing(const char *filename){
 	int nLoc = Location.size();
 	// Determine extrema values
 	double lMax = Location.at(0), aMax = Amplitude.at(0), wMax = Width.at(0);
@@ -1086,3 +1089,26 @@ void ahdcSignal::PrintAfterProcessing(filename){
 	delete canvas1;
 }
 
+
+
+void ahdcSignal::Digitize(std::vector<double> & dgtz){
+         int nLoc = Location.size();
+	 // Determine extrema values
+	 double lMax = Location.at(0);
+	 double lMin = lMax;
+	 for (int l=0;l<nLoc;l++){
+	         if (lMax < Location.at(l)) lMax = Location.at(l);
+	         if (lMin > Location.at(l)) lMin = Location.at(l);
+	 }
+	 double margin = 0.1*(lMax - lMin);
+	 double tmin = lMin - margin;
+	 double tmax = lMax + margin;
+	 int Npts = (int) floor(lMax - lMin);
+	 double dt = (tmax - tmin)/Npts;
+	 for (int i=0;i<Npts;i++){
+	 	double value = this->operator()(tmin + i*dt); //in keV
+		value = electronYield*value; // in ADC
+		double adc = (value < adc_max) ? value : adc_max; // saturation effect
+		dgtz.push_back(adc); // sampling effect
+	 }
+}

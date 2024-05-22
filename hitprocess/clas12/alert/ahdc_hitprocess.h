@@ -102,10 +102,14 @@ class ahdcSignal {
 	private :
 		//MHit * aHit;
 		//int hitn;
-		std::vector<double> Location;
-		std::vector<double> Amplitude;
-		std::vector<double> Width;
+		std::vector<double> Location;  // ns
+		std::vector<double> Amplitude; // keV
+		std::vector<double> Width;     // ns
 		std::vector<int> Shape; // allow to have a specific shape associated to each step (ex: gaussians with different std_dev )
+	private :
+		double samplingTime = 44; // [ns]
+		double electronYield = 10; // ADC_gain
+		double adc_max = 10; // saturation for digitization
 	public :
 		/*ahdcSignal(MHit * aHit_, int hitn_){
 			aHit = aHit_;
@@ -124,6 +128,9 @@ class ahdcSignal {
 			Amplitude = obj.Amplitude;
 			Width = obj.Width;
 			Shape = obj.Shape;
+			samplingTime = obj.samplingTime;
+			electronYield = obj.electronYield;
+			adc_max = obj.electronYield;
 		}
 		~ahdcSignal(){;}
 		void Add(double time, double amplitude, double width, int shape){
@@ -132,14 +139,21 @@ class ahdcSignal {
 			Width.push_back(width);
 			Shape.push_back(shape);
 		}
-		std::vector<double>                     GetAmplitude()	{return Amplitude;}
-		std::vector<double>                     GetLocation() 	{return Location;}
-		std::vector<double>                     GetWidth()	{return Width;}
-		std::vector<int>                        GetShape()	{return Shape;}
+		std::vector<double>                     GetAmplitude()		{return Amplitude;}
+		std::vector<double>                     GetLocation() 		{return Location;}
+		std::vector<double>                     GetWidth()		{return Width;}
+		std::vector<int>                        GetShape()		{return Shape;}
+		double 					GetSamplingTime()	 {return samplingTime;}
+		double                                  GetElectronYield()	 {return electronYield;}
+		double                                  GetAdcMax()		 {return adc_max;}
 		void SetAmplitude(std::vector<double> Amplitude_) 	{Amplitude = Amplitude_;}
 		void SetLocation(std::vector<double> Location_)		{Location = Location_;}
 		void SetWidth(std::vector<double> Width_)		{Width = Width_;}
 		void SetShape(std::vector<int> Shape_)			{Shape = Shape_;}
+		void SetSamplingTime(double samplingTime_)			{samplingTime = samplingTime_;}
+		void SetElectronYield(double electronYield_)			{electronYield = electronYield_;}
+		void SetAdcMax(double adc_)				{adc_max = adc_;}
+		
 		bool is_safe(){
 			int n1 = Location.size();
 			int n2 = Amplitude.size();
@@ -159,12 +173,14 @@ class ahdcSignal {
 					res += Amplitude.at(l)*ROOT::Math::landau_pdf(x,Width.at(l),Location.at(l));
 				}
 			}
-			return res;
+			return res; // in keV
 		}
 		void PrintBeforeProcessing(const char * filename);
 		void PrintAllShapes(const char * filename);
 		void PrintAfterProcessing(const char * filename);
-
+		
+		void Digitize(std::vector<double> & dgtz);
+		void PrintDgt();
 };
 
 
