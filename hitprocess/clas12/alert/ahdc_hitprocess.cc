@@ -56,27 +56,13 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	int sector    = 0;
 	int layer     = 10 * identity[0].id + identity[1].id ; // 10*superlayer + layer
 	int component = identity[2].id;
-	
-	// felix	
-	std::ofstream output("./output/output.txt",std::ofstream::app);
-	// end felix
-	
+		
 	if(aHit->isBackgroundHit == 1) {
 
 		double totEdep  = aHit->GetEdep()[0];
 		double stepTime = aHit->GetTime()[0];
 		double tdc      = stepTime;
 		
-		// felix
-		if (!output.fail()){
-			if (hitn == 1) {
-				output << "# ------- NEW EVENT " << std::endl;
-        		}
-			output << "hitn  b : " << hitn << std::endl;
-			output << "time  b : " << stepTime << std::endl;
-			output << "nstep b : " << 1 << std::endl;
-		}
-		// end felix
 		dgtz["hitn"]      = hitn;
 		dgtz["sector"]    = sector;
 		dgtz["layer"]     = layer;
@@ -108,39 +94,20 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	vector<G4ThreeVector> mom         = aHit->GetMoms();
 	vector<double>        E           = aHit->GetEs();
 		
-	// felix                
-	if (!output.fail()){
-		if (hitn == 1) {
-		        // print it in output.txt 
-		        output << "# ------- NEW EVENT  " << std::endl;
-        	}
-		output << "hitn     : " << hitn << std::endl;
-		output << "nsteps   : " << tInfos.nsteps << std::endl;
-		output << "> time   : " << tInfos.time << std::endl;
-		output << "> Edep   : "  << tInfos.eTot << std::endl;
-	}
-	output.close();
-		
-	//std::ofstream signal("signal.txt",std::ios::app);
-	/*if (tInfos.nsteps > 15){	
-		//PrintSignal(aHit, "ahdc_signal");
-		if (!signal.fail()){
-			for (unsigned int i=0;i<tInfos.nsteps;i++) {
-				signal << stepTime.at(i) << " " << Edep.at(i) << std::endl;
-			}
-			signal << std::endl;
-		}
-		signal.close();
-	}*/
-		
-	std::ofstream hist_nsteps("./output/hist_nsteps.txt",std::ios::app);
-	hist_nsteps << tInfos.nsteps << std::endl;
-	hist_nsteps.close();
 
-	ahdc_HitProcess::ShowMeHitContent(aHit,hitn);
+	
+
+	
 	// ****************************************
 	// TEST : show ahdc signal
 	// ***************************************
+	
+	// std::ofstream hist_nsteps("./output/hist_nsteps.txt",std::ios::app);
+	// hist_nsteps << tInfos.nsteps << std::endl;
+	// hist_nsteps.close();
+	
+	ahdc_HitProcess::ShowMeHitContent(aHit,hitn);
+	
 	double mydoca = DBL_MAX;
 	int nsteps = Edep.size();
 	vector<double> Height(nsteps);
@@ -149,15 +116,26 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	double MyVelocity = ahdc_HitProcess::ComputeDriftTime(aHit,mydoca,Height,Time);
 	
 	ahdcSignal Signal;
+	double tmin = 0; double tmax = tmin;
+	for (int s=0;s<nsteps;s++){
+		if (tmin > Time.at(s)) tmin = Time.at(s);
+		if (tmax < Time.at(s)) tmax = Time.at(s);
+	}
+	double dT = tmax - tmin;
+	double width = 0.3*(dT/nsteps); // for example
 	for (int s=0;s<nsteps;s++){
 		int shape_type = rand () % 2;
 		Signal.Add(Time.at(s),Edep.at(s)*1000,0.3, shape_type); // Edep converted in keV
 	}
-	TString filename;
-	filename.Form("./output/SignalBeforeProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
+	TString filename1, filename2, filename3;
+	filename1.Form("./output/SignalBeforeProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
+	filename2.Form("./output/SignalAllShapes_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
+	filename3.Form("./output/SignalAfterProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
 	if (nsteps > 10){
 		if (Signal.is_safe()) { 
-			Signal.PrintBeforeProcessing(filename);
+			Signal.PrintBeforeProcessing(filename1);
+			Signal.PrintAllShapes(filename1);
+			Signal.PrintAfterProcessing(filename1);
 			std::cout << "   doca : " << mydoca << std::endl;
 			std::cout << "   Height : " << Height.at(0) << " " << Height.at(1) << " "<< Height.at(2) << " " << std::endl;
 			std::cout << "   velocity : " << MyVelocity  << std::endl;
@@ -168,10 +146,7 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 
 	// ****************************************
 	// END TEST : show ahdc signal
-	// ***************************************
-
-
-	// end felix
+	// ****************************************
 
 //	double signal_t = 0.0;
 	double signal_tTimesEdep = 0.0;
@@ -954,4 +929,160 @@ void ahdcSignal::PrintBeforeProcessing(const char * filename){
 	delete canvas1;
 }
 
+void ahdcSignal::PrintAllShapes(const char * filename){
+	int nLoc = Location.size();
+	// Determine extrema values
+	double lMax = Location.at(0), aMax = Amplitude.at(0), wMax = Width.at(0);
+	double lMin = lMax, aMin = aMax, wMin = wMax;
+	for (int l=0;l<nLoc;l++){
+		if (lMax < Location.at(l)) lMax = Location.at(l);
+		if (aMax < Amplitude.at(l)) aMax = Amplitude.at(l);
+		if (wMax < Width.at(l)) wMax = Width.at(l);
+		if (lMin > Location.at(l)) lMin = Location.at(l);
+		if (aMin > Amplitude.at(l)) aMin = Amplitude.at(l);
+		if (wMin > Width.at(l)) wMin = Width.at(l);
+	}
+	aMin = 0;
+	// Define canvas
+	double Dl = lMax - lMin;
+	double Da = aMax - aMin;
+	//double Dw = wMax - wMin;
+	double xmargin = 0.1*Dl;
+	double ymargin = 0.2*Da;
+	// Define canvas
+	TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768); // canvas1->Range() will set later
+	// Define graph 1
+	TGraph* gr1 = new TGraph(nLoc);
+	for (int l=0;l<nLoc;l++){
+		gr1->SetPoint(l,Location.at(l),Amplitude.at(l));
+	}
+	gr1->SetMarkerStyle(20);
+	gr1->SetMarkerColor(kRed);
+	gr1->SetMarkerSize(2);
+	gr1->Draw("P");
+	// Draw lines
+	for (int l=0;l<nLoc;l++){
+		TLine* line = new TLine(Location.at(l),0,Location.at(l),Amplitude.at(l));
+		line->SetLineWidth(1);
+		line->SetLineColor(kBlack);
+		line->Draw();
+	}
+	// Draw all shape
+	double ymax = aMax;
+	double tmin = lMin - 1*xmargin;
+	double tmax = lMax + 1*xmargin; 
+	int Npts = 1000;
+	for (int l=0;l<nLoc;l++){ 
+		TGraph* gr2 = new TGraph(Npts);
+		double xRange[Npts], yRange[Npts];
+		for (int i=0;i<Npts;i++){
+			xRange[i] = tmin + i*(tmax-tmin)/Npts;
+			if (Shape.at(l) == 0) {
+				yRange[i] = Amplitude.at(l)*ROOT::Math::gaussian_pdf(xRange[i],Width.at(l),Location.at(l));
+		        	if (ymax < yRange[i]) ymax = yRange[i];
+			}
+		    	if (Shape.at(l) == 1){
+				yRange[i] =  Amplitude.at(l)*ROOT::Math::landau_pdf(xRange[i],Width.at(l),Location.at(l));
+				if (ymax < yRange[i]) ymax = yRange[i];
+		    	}
+		    	gr2->SetPoint(i,xRange[i],yRange[i]);
+		}
+		gr2->SetLineColor(kBlue);
+		gr2->SetFillColorAlpha(2+l,0.35);
+		gr2->SetFillStyle(3001);
+		gr2->Draw("LF"); 
+        }
+        // Draw axis
+	TGaxis* ox1 = new TGaxis(lMin-1*xmargin, 0, lMax+1*xmargin, 0, lMin-1*xmargin, lMax+1*xmargin,510,"+-S>");
+	ox1->SetTickSize(0.009);
+	ox1->SetLabelFont(42);
+	ox1->SetLabelSize(0.025);
+	ox1->SetTitle("time [ns]");
+	ox1->SetTitleSize(0.03);
+	ox1->Draw();
+	TGaxis* oy1 = new TGaxis(lMin-0.5*xmargin, aMin-1*ymargin, lMin-0.5*xmargin, ymax+2*ymargin, aMin-1*ymargin, ymax+2*ymargin,505,"+-S>");
+	oy1->SetTickSize(0.009);
+	oy1->SetLabelFont(42);
+	oy1->SetLabelSize(0.025);
+	oy1->SetTitle("#frac{d (Edep)}{dt} [keV/ns]");
+	oy1->SetTitleSize(0.03); //oy->SetTitleOffset(0.5);
+	oy1->Draw();
+	// Draw title
+	TLatex latex1;
+	latex1.SetTextSize(0.04);
+	latex1.SetTextAlign(13);
+	latex1.DrawLatex(lMin + (lMax-lMin)/4, ymax+2.2*ymargin,"#bf{Distribution of deposited energy in each steps}");
+	// Print file
+	canvas1->Range(lMin-2*xmargin,0-2*ymargin,lMax+2*xmargin,ymax+3*ymargin);
+	canvas1->Print(filename);
+	delete gr1; 
+	delete ox1; delete oy1; 
+	delete canvas1;
+}
+
+void ahdcSignal::PrintAfterProcessing(filename){
+	int nLoc = Location.size();
+	// Determine extrema values
+	double lMax = Location.at(0), aMax = Amplitude.at(0), wMax = Width.at(0);
+	double lMin = lMax, aMin = aMax, wMin = wMax;
+	for (int l=0;l<nLoc;l++){
+		if (lMax < Location.at(l)) lMax = Location.at(l);
+		if (aMax < Amplitude.at(l)) aMax = Amplitude.at(l);
+		if (wMax < Width.at(l)) wMax = Width.at(l);
+		if (lMin > Location.at(l)) lMin = Location.at(l);
+		if (aMin > Amplitude.at(l)) aMin = Amplitude.at(l);
+		if (wMin > Width.at(l)) wMin = Width.at(l);
+	}
+    	aMin = 0;
+	// Define canvas
+	double Dl = lMax - lMin;
+	double Da = aMax - aMin;
+	//double Dw = wMax - wMin;
+	double xmargin = 0.1*Dl;
+	double ymargin = 0.2*Da;
+	// Define canvas
+	TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768); // canvas1->Range() will set later
+	// Draw graph
+	double ymax = 0;
+	double tmin = lMin - 1*xmargin;
+	double tmax = lMax + 1*xmargin; 
+	int Npts = 1000;
+    	TGraph* gr1 = new TGraph(Npts);
+    	for (int i=0;i<Npts;i++){
+		double x_ = tmin + i*(tmax-tmin)/Npts;
+		double y_ = this->operator()(x_);
+		if (ymax < y_) ymax = y_;
+		gr1->SetPoint(i,x_,y_);
+    	}
+	gr1->SetLineColor(kBlue);
+	gr1->SetFillColorAlpha(kRed,0.35);
+	gr1->SetFillStyle(3001);
+	gr1->Draw("LF"); 
+	// Draw axis
+	TGaxis* ox1 = new TGaxis(lMin-1*xmargin, 0, lMax+1*xmargin, 0, lMin-1*xmargin, lMax+1*xmargin,510,"+-S>");
+	ox1->SetTickSize(0.009);
+	ox1->SetLabelFont(42);
+	ox1->SetLabelSize(0.025);
+	ox1->SetTitle("time [ns]");
+	ox1->SetTitleSize(0.03);
+	ox1->Draw();
+	TGaxis* oy1 = new TGaxis(lMin-0.5*xmargin, aMin-1*ymargin, lMin-0.5*xmargin, ymax+2*ymargin, aMin-1*ymargin, ymax+2*ymargin,505,"+-S>");
+	oy1->SetTickSize(0.009);
+	oy1->SetLabelFont(42);
+	oy1->SetLabelSize(0.025);
+	oy1->SetTitle("#frac{d (Edep)}{dt} |_{s} [keV/ns]");
+	oy1->SetTitleSize(0.03); //oy->SetTitleOffset(0.5);
+	oy1->Draw();
+	// Draw title
+	TLatex latex1;
+	latex1.SetTextSize(0.04);
+	latex1.SetTextAlign(13);
+	latex1.DrawLatex(lMin + (lMax-lMin)/3, ymax+2.2*ymargin,"#bf{AHDC signal}");
+	// Print file
+	canvas1->Range(lMin-2*xmargin,0-2*ymargin,lMax+2*xmargin,ymax+3*ymargin);
+	canvas1->Print(filename);
+	delete gr1; 
+	delete ox1; delete oy1; 
+	delete canvas1;
+}
 

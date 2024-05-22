@@ -162,8 +162,8 @@ class ahdcSignal {
 			return res;
 		}
 		void PrintBeforeProcessing(const char * filename);
-		void PrintAllShapes(double tmin, double tmax, int Npts);
-		void PrintAfterProcessing(double tmin, double tmax, int Npts);
+		void PrintAllShapes(const char * filename);
+		void PrintAfterProcessing(const char * filename);
 
 };
 
