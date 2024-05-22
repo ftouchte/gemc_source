@@ -86,7 +86,7 @@ public:
 	// added by Felix
 	void 	ShowMeHitContent	(MHit* aHit, int hitn);
 	void 	ComputeDoca		(MHit* aHit, double & doca, std::vector<double> & Height);
-	void 	ComputeDriftTime	(MHit* aHit, const double & doca, const std::vector<double> & Height, std::vector<double> & Time);
+	double 	ComputeDriftTime	(MHit* aHit, const double & doca, const std::vector<double> & Height, std::vector<double> & Time);
 	double 	ComputeEdep		(MHit* aHit);
 	double 	ComputeADC		(double Edep, double ADC_gain, double ADC_max);
 	
@@ -161,7 +161,7 @@ class ahdcSignal {
 			}
 			return res;
 		}
-		void PrintBeforeProcessing();
+		void PrintBeforeProcessing(const char * filename);
 		void PrintAllShapes(double tmin, double tmax, int Npts);
 		void PrintAfterProcessing(double tmin, double tmax, int Npts);
 

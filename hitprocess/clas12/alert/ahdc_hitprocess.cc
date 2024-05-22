@@ -6,6 +6,8 @@
 #include <random>
 #include <fstream>
 
+#include "TString.h"
+
 #include <CCDB/Calibration.h>
 #include <CCDB/Model/Assignment.h>
 #include <CCDB/CalibrationGenerator.h>
@@ -136,6 +138,39 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	hist_nsteps.close();
 
 	ahdc_HitProcess::ShowMeHitContent(aHit,hitn);
+	// ****************************************
+	// TEST : show ahdc signal
+	// ***************************************
+	double mydoca = DBL_MAX;
+	int nsteps = Edep.size();
+	vector<double> Height(nsteps);
+	vector<double> Time(nsteps);
+	ahdc_HitProcess::ComputeDoca(aHit,mydoca,Height);
+	double MyVelocity = ahdc_HitProcess::ComputeDriftTime(aHit,mydoca,Height,Time);
+	
+	ahdcSignal Signal;
+	for (int s=0;s<nsteps;s++){
+		int shape_type = rand () % 2;
+		Signal.Add(Time.at(s),Edep.at(s)*1000,0.3, shape_type); // Edep converted in keV
+	}
+	TString filename;
+	filename.Form("./output/SignalBeforeProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
+	if (nsteps > 10){
+		if (Signal.is_safe()) { 
+			Signal.PrintBeforeProcessing(filename);
+			std::cout << "   doca : " << mydoca << std::endl;
+			std::cout << "   Height : " << Height.at(0) << " " << Height.at(1) << " "<< Height.at(2) << " " << std::endl;
+			std::cout << "   velocity : " << MyVelocity  << std::endl;
+			std::cout << "   Time : " << Time.at(0) << " " << Time.at(1) << " "<< Time.at(2) << " " << std::endl;
+			std::cout << "   Edep : " << Edep.at(0)*1000 << " " << Edep.at(1)*1000 << " "<< Edep.at(2)*1000 << " " << std::endl;
+		}
+	}
+
+	// ****************************************
+	// END TEST : show ahdc signal
+	// ***************************************
+
+
 	// end felix
 
 //	double signal_t = 0.0;
@@ -703,12 +738,12 @@ void ahdc_HitProcess::ComputeDoca(MHit* aHit, double & doca, std::vector<double>
 	double LposX, LposY, LposZ;
 	
 	// ALERT geometry
-	double X_sigwire_top = -150; // [mm]
+	double X_sigwire_top = 0; // [mm]
 	double Y_sigwire_top = 0;
-	double Z_sigwire_top = 0; 
-	double X_sigwire_bot = 150; // [mm]
-	double Y_sigwire_bot=0;
-	double Z_sigwire_bot=0;
+	double Z_sigwire_top = -150; 
+	double X_sigwire_bot = 0; // [mm]
+	double Y_sigwire_bot = 0;
+	double Z_sigwire_bot = 150;
 	
 	// Compute Y_sigwire_top, Z_sigwire_top, Y_sigwire_bot, Z_sigwire_bot
 	
@@ -734,7 +769,7 @@ void ahdc_HitProcess::ComputeDoca(MHit* aHit, double & doca, std::vector<double>
 	xV7 = aHit->GetDetector().dimensions[15];
 	yV4 = aHit->GetDetector().dimensions[10];
 	xV4 = aHit->GetDetector().dimensions[9];
-	
+
 	if ( abs(dim_id_2) > abs(dim_id_8)) {
 		// subcell = 1;
 		X_sigwire_top = xV3 + (xV0 - xV3)/2;
@@ -749,6 +784,11 @@ void ahdc_HitProcess::ComputeDoca(MHit* aHit, double & doca, std::vector<double>
 		X_sigwire_bot = xV4 + (xV7 - xV4)/2;
 		Y_sigwire_bot = yV4 + (yV7 - yV4)/2; // z=+150 mm
 	}
+	// std::cout << "=======> Inside doca calculation" << std::endl;
+	// std::cout << "   X_sigwire_top : " << X_sigwire_top << std::endl;
+	// std::cout << "   X_sigwire_bot : " << X_sigwire_bot << std::endl;
+	// std::cout << "   Y_sigwire_top : " << Y_sigwire_top << std::endl;
+	// std::cout << "   Y_sigwire_bot : " << Y_sigwire_bot << std::endl;
 
 	// Triangle abh
 	// a (sigwire_top), b (sigwire_bot), h (hit position)
@@ -756,7 +796,7 @@ void ahdc_HitProcess::ComputeDoca(MHit* aHit, double & doca, std::vector<double>
 	double L_ab, L_ah, L_bh, H_abh;
 	// Compute the distance between top and bottom of the wire
 	L_ab = sqrt(pow(X_sigwire_top-X_sigwire_bot,2) + pow(Y_sigwire_top-Y_sigwire_bot,2) + pow(Z_sigwire_top-Z_sigwire_bot,2));
-	
+	// std::cout << "   L_ab : " << L_ab << std::endl;	
 	// Initialise doca
 	doca = DBL_MAX;
 	for (int s=0;s<nsteps;s++) {
@@ -767,17 +807,26 @@ void ahdc_HitProcess::ComputeDoca(MHit* aHit, double & doca, std::vector<double>
 		// Compute distance
 		L_ah = sqrt(pow(X_sigwire_top-LposX,2) + pow(Y_sigwire_top-LposY,2) + pow(Z_sigwire_top-LposZ,2));
 		L_bh = sqrt(pow(X_sigwire_bot-LposX,2) + pow(Y_sigwire_bot-LposY,2) + pow(Z_sigwire_bot-LposZ,2));
-		// Compute the height of a triangular (see documentation for the demonstration the formula)
+		// Compute the height of a triangular (see documentation for the demonstration of the formula)
 		H_abh = L_ah*sqrt(1 - pow((L_ah*L_ah + L_ab*L_ab - L_bh*L_bh)/(2*L_ah*L_ab),2));
 		if (doca > H_abh) doca = H_abh;
 		Height.at(s) = H_abh;
+		//if (s==0) {
+		//	LposX = Lpos[s].x();
+		//	LposY = Lpos[s].y();
+		//	LposZ = Lpos[s].z();
+		//	std::cout << "      L_ah  : " << L_ah << std::endl;
+		//	std::cout << "      L_bh  : " << L_bh << std::endl;
+		//	std::cout << "      H_abh : " << H_abh << std::endl;
+		//}
 	}
 
 }
 
-void ahdc_HitProcess::ComputeDriftTime(MHit* aHit, const double & doca, const std::vector<double> & Height, std::vector<double> & Time){
+double ahdc_HitProcess::ComputeDriftTime(MHit* aHit, const double & doca, const std::vector<double> & Height, std::vector<double> & Time){
 	vector<double>        stepTime    = aHit->GetTime();
 	int nsteps = stepTime.size();
+	double driftVelocity;
 	for (int s=0;s<nsteps;s++){
 
 		// docasig is a fit to sigma vs distance plot. A second order pol used for the fit (p0+p1*x+p2*x*x).
@@ -791,10 +840,16 @@ void ahdc_HitProcess::ComputeDriftTime(MHit* aHit, const double & doca, const st
 		std::default_random_engine dseed(time(0)); //seed
 		std::normal_distribution<double> docadist(doca, docasig);
 		double doca_r =docadist(dseed);
-		double driftVelocity = 1./(driftP1+2.*driftP2*doca_r);  // mm/ns // drift velocity as a function of distance. pol2 fitted to t vs x plot and drift velocity is then extracted from dx/dt, d/dt(p0+p1*x+p2*x^2)=p1+2*p2*x.
+		driftVelocity = 1./(driftP1+2.*driftP2*doca_r);  // mm/ns // drift velocity as a function of distance. pol2 fitted to t vs x plot and drift velocity is then extracted from dx/dt, d/dt(p0+p1*x+p2*x^2)=p1+2*p2*x.
 		Time.at(s) = stepTime[s] + Height.at(s)/driftVelocity;
-
+		if ((nsteps > 10) && (s == 0)){
+			std::cout << "   doca : " << doca << std::endl;
+			std::cout << "   docasig : " << docasig << std::endl;
+			std::cout << "   doca_r : " << doca_r << std::endl;
+			std::cout << "   driftVelocity : " << driftVelocity << std::endl;
+		}
 	}
+	return driftVelocity;
 }
 
 double ahdc_HitProcess::ComputeEdep(MHit* aHit){
@@ -831,7 +886,7 @@ namespace futils {
 }
 
 
-void ahdcSignal::PrintBeforeProcessing(){
+void ahdcSignal::PrintBeforeProcessing(const char * filename){
 	// Parameters : std::vector<double or int> Location, Amplitude, Width, Shape
 	int nLoc = Location.size();
 	// Determine extrema values
@@ -893,11 +948,10 @@ void ahdcSignal::PrintBeforeProcessing(){
 	latex1.DrawLatex(lMin + (lMax-lMin)/3, aMax+2.2*ymargin,"#bf{Deposited energy in each steps}");
 
 	//canvas1->Update();
-	canvas1->Print("./output/TestPrintBeforeProcessing.pdf");
+	canvas1->Print(filename);
 	delete gr1; 
 	delete ox1; delete oy1; 
 	delete canvas1;
 }
-
 
 
