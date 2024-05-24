@@ -84,11 +84,8 @@ public:
 
 public:
 	// added by Felix
-	void 	ShowMeHitContent	(MHit* aHit, int hitn);
-	void 	ComputeDoca		(MHit* aHit, double & doca, std::vector<double> & Height);
-	double 	ComputeDriftTime	(MHit* aHit, const double & doca, const std::vector<double> & Height, std::vector<double> & Time);
-	double 	ComputeEdep		(MHit* aHit);
-	double 	ComputeADC		(double Edep, double ADC_gain, double ADC_max);
+	void 	ShowMeHitContent	(MHit* aHit, int hitn); // to be modified (I want to center the wire at the origin of the plan, get insired by H_abh or doca calculation
+	void 	ComputeDocaAndTime	(MHit* aHit, std::vector<double> & Height, std::vector<double> & Time); // could it be better to add this in ahdcSignal ? Same for ShowMeHitContent ?
 	
 };
 
@@ -107,9 +104,9 @@ class ahdcSignal {
 		std::vector<double> Width;     // ns
 		std::vector<int> Shape; // allow to have a specific shape associated to each step (ex: gaussians with different std_dev )
 	private :
-		double samplingTime = 44; // [ns]
-		double electronYield = 10; // ADC_gain
-		double adc_max = 10; // saturation for digitization
+		double samplingTime = 5; // [ns]
+		double electronYield = 1000; // ADC_gain
+		int adc_max = 10000; // saturation for digitization
 	public :
 		/*ahdcSignal(MHit * aHit_, int hitn_){
 			aHit = aHit_;
@@ -145,14 +142,14 @@ class ahdcSignal {
 		std::vector<int>                        GetShape()		{return Shape;}
 		double 					GetSamplingTime()	 {return samplingTime;}
 		double                                  GetElectronYield()	 {return electronYield;}
-		double                                  GetAdcMax()		 {return adc_max;}
+		int	                                GetAdcMax()		 {return adc_max;}
 		void SetAmplitude(std::vector<double> Amplitude_) 	{Amplitude = Amplitude_;}
 		void SetLocation(std::vector<double> Location_)		{Location = Location_;}
 		void SetWidth(std::vector<double> Width_)		{Width = Width_;}
 		void SetShape(std::vector<int> Shape_)			{Shape = Shape_;}
 		void SetSamplingTime(double samplingTime_)			{samplingTime = samplingTime_;}
 		void SetElectronYield(double electronYield_)			{electronYield = electronYield_;}
-		void SetAdcMax(double adc_)				{adc_max = adc_;}
+		void SetAdcMax(int adc_)				{adc_max = adc_;}
 		
 		bool is_safe(){
 			int n1 = Location.size();
@@ -179,8 +176,8 @@ class ahdcSignal {
 		void PrintAllShapes(const char * filename);
 		void PrintAfterProcessing(const char * filename);
 		
-		void Digitize(std::vector<double> & dgtz);
-		void PrintDgt();
+		void Digitize(const char * filename);
+		void PrintDgt(); // not yet defined
 };
 
 

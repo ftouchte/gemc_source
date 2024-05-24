@@ -108,12 +108,10 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	
 	ahdc_HitProcess::ShowMeHitContent(aHit,hitn);
 	
-	double mydoca = DBL_MAX;
 	int nsteps = Edep.size();
 	vector<double> Height(nsteps);
 	vector<double> Time(nsteps);
-	ahdc_HitProcess::ComputeDoca(aHit,mydoca,Height);
-	double MyVelocity = ahdc_HitProcess::ComputeDriftTime(aHit,mydoca,Height,Time);
+	ahdc_HitProcess::ComputeDocaAndTime(aHit,Height,Time);
 	
 	ahdcSignal Signal;
 	double tmin = 0; double tmax = tmin;
@@ -123,28 +121,33 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	}
 	double dT = tmax - tmin;
 	double width = 0.3*(dT/nsteps); // for example
-	for (int s=0;s<nsteps;s++){
-		int shape_type = rand () % 2;
-		Signal.Add(Time.at(s),Edep.at(s)*1000,width, shape_type); // Edep converted in keV
-	}
-	TString filename1, filename2, filename3;
-	filename1.Form("./output/SignalBeforeProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
-	filename2.Form("./output/SignalAllShapes_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
-	filename3.Form("./output/SignalAfterProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
+	// Set parameters for digitization
+	Signal.SetSamplingTime(1); // ns
+	Signal.SetElectronYield(1000);
+	Signal.SetAdcMax(10000);
 	if (nsteps > 10){
-		if (Signal.is_safe()) { 
-			Signal.PrintBeforeProcessing(filename1);
-			Signal.PrintAllShapes(filename2);
-			Signal.PrintAfterProcessing(filename3);
-			std::cout << "   doca : " << mydoca << std::endl;
-			std::cout << "   Height : " << Height.at(0) << " " << Height.at(1) << " "<< Height.at(2) << " " << std::endl;
-			std::cout << "   velocity : " << MyVelocity  << std::endl;
-			std::cout << "   Time : " << Time.at(0) << " " << Time.at(1) << " "<< Time.at(2) << " " << std::endl;
-			std::cout << "   Edep : " << Edep.at(0)*1000 << " " << Edep.at(1)*1000 << " "<< Edep.at(2)*1000 << " " << std::endl;
-			std::cout << "   width : " << width << std::endl;
-			std::cout << "   Signal.GetShape() : " << Signal.GetShape().at(0) << " " << Signal.GetShape().at(1) << " "<< Signal.GetShape().at(2) << " " << std::endl;
-			std::cout << "   Signal : " << Signal(Time.at(0)) << " " << Signal(Time.at(1)) << " " <<  Signal(Time.at(2)) << " "  << std::endl;
+		// Instantiate Signal
+		for (int s=0;s<nsteps;s++){
+			//int shape_type = rand () % 2;
+			int shape_type = 1;
+			Signal.Add(Time.at(s),Edep.at(s)*1000,width, shape_type); // Edep converted in keV
 		}
+		TString filename1, filename2, filename3, filename4;
+		filename1.Form("./output/SignalBeforeProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
+		filename2.Form("./output/SignalAllShapes_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
+		filename3.Form("./output/SignalAfterProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
+		filename4.Form("./output/SignalDigitized_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
+		Signal.PrintBeforeProcessing(filename1);
+		Signal.PrintAllShapes(filename2);
+		Signal.PrintAfterProcessing(filename3);
+		Signal.Digitize(filename4);
+		//std::cout << "=======> Inside Main routine" << std::endl;
+		//std::cout << "   Height : " << Height.at(0) << " " << Height.at(1) << " "<< Height.at(2) << " " << std::endl;
+		//std::cout << "   Time   : " << Time.at(0) << " " << Time.at(1) << " "<< Time.at(2) << " " << std::endl;
+		//std::cout << "   Edep   : " << Edep.at(0)*1000 << " " << Edep.at(1)*1000 << " "<< Edep.at(2)*1000 << " " << std::endl;
+		//std::cout << "   width  : " << width << std::endl;
+		//std::cout << "   Shape  : " << Signal.GetShape().at(0) << " " << Signal.GetShape().at(1) << " "<< Signal.GetShape().at(2) << " " << std::endl;
+		//std::cout << "   Signal : " << Signal(Time.at(0)) << " " << Signal(Time.at(1)) << " " <<  Signal(Time.at(2)) << " "  << std::endl;
 	}
 
 	// ****************************************
@@ -710,7 +713,7 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 }
 
 
-void ahdc_HitProcess::ComputeDoca(MHit* aHit, double & doca, std::vector<double> & Height){
+void ahdc_HitProcess::ComputeDocaAndTime(MHit* aHit, std::vector<double> & Height, std::vector<double> & Time){
 	vector<G4ThreeVector> Lpos        = aHit->GetLPos();
 	int nsteps = Lpos.size();
 	double LposX, LposY, LposZ;
@@ -762,7 +765,7 @@ void ahdc_HitProcess::ComputeDoca(MHit* aHit, double & doca, std::vector<double>
 		X_sigwire_bot = xV4 + (xV7 - xV4)/2;
 		Y_sigwire_bot = yV4 + (yV7 - yV4)/2; // z=+150 mm
 	}
-	// std::cout << "=======> Inside doca calculation" << std::endl;
+	// std::cout << "=======> Inside ComputeDocaAndTime" << std::endl;
 	// std::cout << "   X_sigwire_top : " << X_sigwire_top << std::endl;
 	// std::cout << "   X_sigwire_bot : " << X_sigwire_bot << std::endl;
 	// std::cout << "   Y_sigwire_top : " << Y_sigwire_top << std::endl;
@@ -774,9 +777,8 @@ void ahdc_HitProcess::ComputeDoca(MHit* aHit, double & doca, std::vector<double>
 	double L_ab, L_ah, L_bh, H_abh;
 	// Compute the distance between top and bottom of the wire
 	L_ab = sqrt(pow(X_sigwire_top-X_sigwire_bot,2) + pow(Y_sigwire_top-Y_sigwire_bot,2) + pow(Z_sigwire_top-Z_sigwire_bot,2));
-	// std::cout << "   L_ab : " << L_ab << std::endl;	
-	// Initialise doca
-	doca = DBL_MAX;
+	// std::cout << "   L_ab : " << L_ab << std::endl;
+	// double doca = DBL_MAX;
 	for (int s=0;s<nsteps;s++) {
 		// Load current hit positions
 		LposX = Lpos[s].x();
@@ -786,66 +788,31 @@ void ahdc_HitProcess::ComputeDoca(MHit* aHit, double & doca, std::vector<double>
 		L_ah = sqrt(pow(X_sigwire_top-LposX,2) + pow(Y_sigwire_top-LposY,2) + pow(Z_sigwire_top-LposZ,2));
 		L_bh = sqrt(pow(X_sigwire_bot-LposX,2) + pow(Y_sigwire_bot-LposY,2) + pow(Z_sigwire_bot-LposZ,2));
 		// Compute the height of a triangular (see documentation for the demonstration of the formula)
-		H_abh = L_ah*sqrt(1 - pow((L_ah*L_ah + L_ab*L_ab - L_bh*L_bh)/(2*L_ah*L_ab),2));
-		if (doca > H_abh) doca = H_abh;
+		H_abh = L_ah*sqrt(1 - pow((L_ah*L_ah + L_ab*L_ab - L_bh*L_bh)/(2*L_ah*L_ab),2)); // this is the d.o.c.a of a given hit (!= MHit)
+		//if (doca > H_abh) doca = H_abh; 
 		Height.at(s) = H_abh;
-		//if (s==0) {
-		//	LposX = Lpos[s].x();
-		//	LposY = Lpos[s].y();
-		//	LposZ = Lpos[s].z();
-		//	std::cout << "      L_ah  : " << L_ah << std::endl;
-		//	std::cout << "      L_bh  : " << L_bh << std::endl;
-		//	std::cout << "      H_abh : " << H_abh << std::endl;
-		//}
-	}
-
-}
-
-double ahdc_HitProcess::ComputeDriftTime(MHit* aHit, const double & doca, const std::vector<double> & Height, std::vector<double> & Time){
-	vector<double>        stepTime    = aHit->GetTime();
-	int nsteps = stepTime.size();
-	double driftVelocity;
-	for (int s=0;s<nsteps;s++){
-
-		// docasig is a fit to sigma vs distance plot. A second order pol used for the fit (p0+p1*x+p2*x*x).
-		// drift velocity as a function of distance. pol2 fitted to t vs x plot and drift velocity is derived from the fit (1/(dt/dx)).
-		// both sig vs dist and t vs dist plots are taken from  Lucien Causse's PhD thesis ("Development of a stereo drift chamber for the Jefferson Laboratory ALERT Experiment.").
-		// plots were digitized and then fitted to a pol2. 
-		
-		double driftP1=-16.17;
-		double driftP2=24.81;
-		double docasig = 337.3-210.3*doca+34.7*pow(doca,2);
+		// Add a resolution on doca
+		double docasig = 337.3-210.3*H_abh+34.7*pow(H_abh,2); // um // fit sigma vs distance // Fig 4.14 (right), L. Causse's thesis
+		docasig = docasig/1000; // mm
 		std::default_random_engine dseed(time(0)); //seed
-		std::normal_distribution<double> docadist(doca, docasig);
-		double doca_r =docadist(dseed);
-		driftVelocity = 1./(driftP1+2.*driftP2*doca_r);  // mm/ns // drift velocity as a function of distance. pol2 fitted to t vs x plot and drift velocity is then extracted from dx/dt, d/dt(p0+p1*x+p2*x^2)=p1+2*p2*x.
-		Time.at(s) = stepTime[s] + Height.at(s)/driftVelocity;
-		if ((nsteps > 10) && (s == 0)){
-			std::cout << "   doca : " << doca << std::endl;
-			std::cout << "   docasig : " << docasig << std::endl;
-			std::cout << "   doca_r : " << doca_r << std::endl;
-			std::cout << "   driftVelocity : " << driftVelocity << std::endl;
-		}
+		std::normal_distribution<double> docadist(H_abh, docasig);
+		// Compute time
+		double driftTime = 7*H_abh + 7*pow(H_abh,2) + 4*pow(H_abh,3); // fit t vs distance //  Fig 4.12 (right), L. Causse's thesis
+		Time.at(s) = driftTime; // ns
+
+		 if ((s==0) and (nsteps > 10)) {
+			 std::cout << "=======> Inside ComputeDocaAndTime" << std::endl;		 	
+		 //      LposX = Lpos[s].x();
+		 //      LposY = Lpos[s].y();
+		 //      LposZ = Lpos[s].z();
+		 //      std::cout << "      L_ah  : " << L_ah << std::endl;
+		 //      std::cout << "      L_bh  : " << L_bh << std::endl;
+		 //      std::cout << "      H_abh : " << H_abh << std::endl;
+		 	 std::cout << "      docasig : " << docasig << std::endl;
+		 }
+
 	}
-	return driftVelocity;
 }
-
-double ahdc_HitProcess::ComputeEdep(MHit* aHit){
-	vector<G4double>      Edep        = aHit->GetEdep();
-	int nsteps = Edep.size();
-	double etot = 0;
-	for (int i=0;i<nsteps;i++){
-		etot += Edep[i];
-	}
-	return etot;
-}
-
-double ahdc_HitProcess::ComputeADC(double Edep, double ADC_gain, double ADC_max){
-	// edep is in [keV]
-	double adc = Edep*ADC_gain;
-	return (adc < ADC_max) ? adc : ADC_max;
-}
-
 
 namespace futils {
 	bool cart2polar3D(double x, double y, double z, double & rho, double & theta, double & phi){
@@ -972,8 +939,8 @@ void ahdcSignal::PrintAllShapes(const char * filename){
 	}
 	// Draw all shape
 	double ymax = aMax;
-	double tmin = lMin - 1*xmargin;
-	double tmax = lMax + 1*xmargin; 
+	double tmin = lMin - 3*xmargin;
+	double tmax = lMax + 3*xmargin; 
 	int Npts = 1000;
 	for (int l=0;l<nLoc;l++){ 
 		TGraph* gr2 = new TGraph(Npts);
@@ -991,9 +958,10 @@ void ahdcSignal::PrintAllShapes(const char * filename){
 		    	gr2->SetPoint(i,xRange[i],yRange[i]);
 		}
 		gr2->SetLineColor(kBlue);
-		gr2->SetFillColorAlpha(2+l,0.35);
+		gr2->SetFillColorAlpha(2+l,1.0);
 		gr2->SetFillStyle(3001);
-		gr2->Draw("LF"); 
+		// gr2->Draw("LF"); 
+		gr2->Draw("L");
         }
         // Draw axis
 	TGaxis* ox1 = new TGaxis(lMin-1*xmargin, 0, lMax+1*xmargin, 0, lMin-1*xmargin, lMax+1*xmargin,510,"+-S>");
@@ -1014,7 +982,7 @@ void ahdcSignal::PrintAllShapes(const char * filename){
 	TLatex latex1;
 	latex1.SetTextSize(0.04);
 	latex1.SetTextAlign(13);
-	latex1.DrawLatex(lMin + (lMax-lMin)/4, ymax+2.2*ymargin,"#bf{Distribution of deposited energy in each steps}");
+	latex1.DrawLatex(lMin + (lMax-lMin)/4, ymax+2.2*ymargin,"#bf{Spread of deposited energy}");
 	// Print file
 	canvas1->Range(lMin-2*xmargin,0-2*ymargin,lMax+2*xmargin,ymax+3*ymargin);
 	canvas1->Print(filename);
@@ -1047,8 +1015,8 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
 	TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768); // canvas1->Range() will set later
 	// Draw graph
 	double ymax = 0;
-	double tmin = lMin - 1*xmargin;
-	double tmax = lMax + 1*xmargin; 
+	double tmin = lMin - 3*xmargin;
+	double tmax = lMax + 3*xmargin; 
 	int Npts = 1000;
     	TGraph* gr1 = new TGraph(Npts);
     	for (int i=0;i<Npts;i++){
@@ -1058,9 +1026,10 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
 		gr1->SetPoint(i,x_,y_);
     	}
 	gr1->SetLineColor(kBlue);
-	gr1->SetFillColorAlpha(kRed,0.35);
+	gr1->SetFillColorAlpha(kBlue,1.0);
 	gr1->SetFillStyle(3001);
-	gr1->Draw("LF"); 
+	// gr1->Draw("LF"); 
+	gr1->Draw("L");
 	// Draw axis
 	TGaxis* ox1 = new TGaxis(lMin-1*xmargin, 0, lMax+1*xmargin, 0, lMin-1*xmargin, lMax+1*xmargin,510,"+-S>");
 	ox1->SetTickSize(0.009);
@@ -1080,7 +1049,7 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
 	TLatex latex1;
 	latex1.SetTextSize(0.04);
 	latex1.SetTextAlign(13);
-	latex1.DrawLatex(lMin + (lMax-lMin)/3, ymax+2.2*ymargin,"#bf{AHDC signal}");
+	latex1.DrawLatex(lMin + (lMax-lMin)/3, ymax+2.2*ymargin,"#bf{AHDC signal : sum of all distributions}");
 	// Print file
 	canvas1->Range(lMin-2*xmargin,0-2*ymargin,lMax+2*xmargin,ymax+3*ymargin);
 	canvas1->Print(filename);
@@ -1091,24 +1060,45 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
 
 
 
-void ahdcSignal::Digitize(std::vector<double> & dgtz){
-         int nLoc = Location.size();
-	 // Determine extrema values
-	 double lMax = Location.at(0);
-	 double lMin = lMax;
-	 for (int l=0;l<nLoc;l++){
-	         if (lMax < Location.at(l)) lMax = Location.at(l);
-	         if (lMin > Location.at(l)) lMin = Location.at(l);
-	 }
-	 double margin = 0.1*(lMax - lMin);
-	 double tmin = lMin - margin;
-	 double tmax = lMax + margin;
-	 int Npts = (int) floor(lMax - lMin);
-	 double dt = (tmax - tmin)/Npts;
-	 for (int i=0;i<Npts;i++){
-	 	double value = this->operator()(tmin + i*dt); //in keV
-		value = electronYield*value; // in ADC
-		double adc = (value < adc_max) ? value : adc_max; // saturation effect
-		dgtz.push_back(adc); // sampling effect
-	 }
+// void ahdcSignal::Digitize(std::vector<double> & dgtz){
+	// dgtz needs to be an empty vector
+void ahdcSignal::Digitize(const char * filename){
+	int nLoc = Location.size();
+	// Determine extrema values
+	double lMax = Location.at(0);
+	double lMin = lMax;
+	for (int l=0;l<nLoc;l++){
+	        if (lMax < Location.at(l)) lMax = Location.at(l);
+	        if (lMin > Location.at(l)) lMin = Location.at(l);
+	}
+	double margin = 0.1*(lMax - lMin);
+	double tmin = lMin - margin;
+	double tmax = lMax + margin;
+	int Npts = (int) floor(lMax - lMin);
+	double dt = (tmax - tmin)/Npts;
+	// Histogram
+	TH1D * hist = new TH1D("hist_adc","hist_adc",100,tmin,tmax);
+	for (int i=0;i<Npts;i++){
+		double value = this->operator()(tmin + i*dt); //in keV
+		value = (int) floor(electronYield*value); // in ADC
+		int adc = (value < adc_max) ? value : adc_max; // saturation effect
+		// dgtz.push_back(adc); // sampling effect
+		for (int j=0;j<adc;j++)
+			hist->Fill(tmin + i*dt);
+		// hist->Fill(tmin + i*dt, adc); 
+	}
+	
+	// Plot graph 
+	TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768);
+	gStyle->SetOptStat("nemruo");
+	hist->GetXaxis()->SetTitle("time [ns]");
+	hist->GetXaxis()->SetTitleSize(0.05);
+	hist->GetYaxis()->SetTitle("adc");
+	hist->GetYaxis()->SetTitleSize(0.05);
+	hist->Draw();
+	canvas1->Print(filename);
+
 }
+
+
+
