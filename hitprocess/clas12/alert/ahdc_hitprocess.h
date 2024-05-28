@@ -104,9 +104,14 @@ class ahdcSignal {
 		std::vector<double> Width;     // ns
 		std::vector<int> Shape; // allow to have a specific shape associated to each step (ex: gaussians with different std_dev )
 	private :
-		double samplingTime = 5; // [ns]
-		double electronYield = 1000; // ADC_gain
-		int adc_max = 10000; // saturation for digitization
+		double samplingTime = 44; // [ns]
+		double electronYield = 9500; // ADC_gain
+		int adc_max = 50000; // saturation for digitization
+	private :
+		double tmin;
+		double tmax;
+		std::vector<double> Dgtz;
+		std::vector<double> Noise;
 	public :
 		/*ahdcSignal(MHit * aHit_, int hitn_){
 			aHit = aHit_;
@@ -143,6 +148,9 @@ class ahdcSignal {
 		double 					GetSamplingTime()	 {return samplingTime;}
 		double                                  GetElectronYield()	 {return electronYield;}
 		int	                                GetAdcMax()		 {return adc_max;}
+		double 					GetTmin() 		{return tmin;}
+		double                                  GetTmax()               {return tmax;}
+		std::vector<double> 			GetNoise() 		{return Noise;}
 		void SetAmplitude(std::vector<double> Amplitude_) 	{Amplitude = Amplitude_;}
 		void SetLocation(std::vector<double> Location_)		{Location = Location_;}
 		void SetWidth(std::vector<double> Width_)		{Width = Width_;}
@@ -150,7 +158,10 @@ class ahdcSignal {
 		void SetSamplingTime(double samplingTime_)			{samplingTime = samplingTime_;}
 		void SetElectronYield(double electronYield_)			{electronYield = electronYield_;}
 		void SetAdcMax(int adc_)				{adc_max = adc_;}
-		
+		void SetTmin(double tmin_)				{tmin = tmin_;}
+		void SetTmax(double tmax_)                              {tmax = tmax_;}
+		void SetNoise(std::vector<double> Noise_)		{Noise = Noise_;}
+
 		bool is_safe(){
 			int n1 = Location.size();
 			int n2 = Amplitude.size();
@@ -175,9 +186,11 @@ class ahdcSignal {
 		void PrintBeforeProcessing(const char * filename);
 		void PrintAllShapes(const char * filename);
 		void PrintAfterProcessing(const char * filename);
-		
-		void Digitize(const char * filename);
-		void PrintDgt(); // not yet defined
+		void PrintDgtz(const char * filename); // to be modified // change hist by graph ?
+		void PrintNoise(const char * filename); // to be defined
+
+		void GenerateNoise(int Npts, double mean, double stdev); 
+		void Digitize(int Npts); // not yet defined
 };
 
 
