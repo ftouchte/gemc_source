@@ -108,8 +108,9 @@ class ahdcSignal {
 		double electronYield = 9500; // ADC_gain
 		int adc_max = 50000; // saturation for digitization
 	private :
-		double tmin;
-		double tmax;
+		double tmin; // for plot
+		double tmax; 
+		double delay = 1000;
 		std::vector<double> Dgtz;
 		std::vector<double> Noise;
 	public :
@@ -151,6 +152,7 @@ class ahdcSignal {
 		double 					GetTmin() 		{return tmin;}
 		double                                  GetTmax()               {return tmax;}
 		std::vector<double> 			GetNoise() 		{return Noise;}
+		double 					GetDelay()		{return delay;}
 		void SetAmplitude(std::vector<double> Amplitude_) 	{Amplitude = Amplitude_;}
 		void SetLocation(std::vector<double> Location_)		{Location = Location_;}
 		void SetWidth(std::vector<double> Width_)		{Width = Width_;}
@@ -161,7 +163,7 @@ class ahdcSignal {
 		void SetTmin(double tmin_)				{tmin = tmin_;}
 		void SetTmax(double tmax_)                              {tmax = tmax_;}
 		void SetNoise(std::vector<double> Noise_)		{Noise = Noise_;}
-
+		void SetDelay(double delay_) 				{delay = delay_;}
 		bool is_safe(){
 			int n1 = Location.size();
 			int n2 = Amplitude.size();
@@ -175,10 +177,10 @@ class ahdcSignal {
 			int nLoc = Location.size();
 			for (int l=0;l<nLoc;l++){
 				if (Shape.at(l) == 0) {
-					res += Amplitude.at(l)*ROOT::Math::gaussian_pdf(x,Width.at(l),Location.at(l));
+					res += Amplitude.at(l)*ROOT::Math::gaussian_pdf(x-delay,Width.at(l),Location.at(l));
 				}
 				else if (Shape.at(l) == 1){
-					res += Amplitude.at(l)*ROOT::Math::landau_pdf(x,Width.at(l),Location.at(l));
+					res += Amplitude.at(l)*ROOT::Math::landau_pdf(x-delay,Width.at(l),Location.at(l));
 				}
 			}
 			return res; // in keV
@@ -187,10 +189,11 @@ class ahdcSignal {
 		void PrintAllShapes(const char * filename);
 		void PrintAfterProcessing(const char * filename);
 		void PrintDgtz(const char * filename); // to be modified // change hist by graph ?
-		void PrintNoise(const char * filename); // to be defined
-
-		void GenerateNoise(int Npts, double mean, double stdev); 
-		void Digitize(int Npts); // not yet defined
+		void PrintNoise(const char * filename); 
+		void PrintResult(const char * filename);
+		
+		void GenerateNoise(double mean, double stdev);
+		void Digitize();
 };
 
 

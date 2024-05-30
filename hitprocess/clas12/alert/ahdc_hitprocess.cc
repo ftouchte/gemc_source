@@ -119,8 +119,9 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	//double dT = tmax - tmin;
 	//double width = 0.3*(dT/nsteps); // for example // but too small
 	// Set parameters for digitization
-	Signal->SetTmin(-4000);
+	Signal->SetTmin(-1000);
 	Signal->SetTmax(8000);
+	Signal->SetDelay(1000);
 	Signal->SetSamplingTime(44); // ns
 	Signal->SetElectronYield(100000);
 	Signal->SetAdcMax(10000);
@@ -129,22 +130,25 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 		// Instantiate Signal
 		for (int s=0;s<nsteps;s++){
 			//int shape_type = rand () % 2;
-			double width = 600; // value taken in Lucien Causse 's thesis
+			double width = 600/2.5; // value taken in Lucien Causse 's thesis
 			int shape_type = 1;
 			Signal->Add(Time.at(s),Edep.at(s)*1000,width, shape_type); // Edep converted in keV
 		}
-		TString filename1, filename2, filename3, filename4, filename5;
+		TString filename1, filename2, filename3, filename4, filename5, filename6;
 		filename1.Form("./output/SignalBeforeProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
 		filename2.Form("./output/SignalAllShapes_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
 		filename3.Form("./output/SignalAfterProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
 		filename4.Form("./output/SignalDigitized_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
 		filename5.Form("./output/SignalNoise_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
+		filename6.Form("./output/SignalResult_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
 		Signal->PrintBeforeProcessing(filename1);
 		Signal->PrintAllShapes(filename2);
 		Signal->PrintAfterProcessing(filename3);
+		Signal->Digitize();
 		Signal->PrintDgtz(filename4);
-		Signal->GenerateNoise(100,300,100);
+		Signal->GenerateNoise(300,30);
 		Signal->PrintNoise(filename5);
+		Signal->PrintResult(filename6);
 
 		//std::cout << "=======> Inside Main routine" << std::endl;
 		//std::cout << "   Height : " << Height.at(0) << " " << Height.at(1) << " "<< Height.at(2) << " " << std::endl;
@@ -923,7 +927,7 @@ void ahdcSignal::PrintAllShapes(const char * filename){
 	// Define graph 1
 	TGraph* gr1 = new TGraph(nLoc);
 	for (int l=0;l<nLoc;l++){
-		gr1->SetPoint(l,Location.at(l),Amplitude.at(l));
+		gr1->SetPoint(l,Location.at(l)+delay,Amplitude.at(l));
 	}
 	gr1->SetMarkerStyle(20);
 	gr1->SetMarkerColor(kRed);
@@ -931,7 +935,7 @@ void ahdcSignal::PrintAllShapes(const char * filename){
 	gr1->Draw("P");
 	// Draw lines
 	for (int l=0;l<nLoc;l++){
-		TLine* line = new TLine(Location.at(l),0,Location.at(l),Amplitude.at(l));
+		TLine* line = new TLine(Location.at(l)+delay,0,Location.at(l)+delay,Amplitude.at(l));
 		line->SetLineWidth(1);
 		line->SetLineColor(kBlack);
 		line->Draw();
@@ -947,11 +951,11 @@ void ahdcSignal::PrintAllShapes(const char * filename){
 		for (int i=0;i<Npts;i++){
 			xRange[i] = tmin + i*(tmax-tmin)/Npts;
 			if (Shape.at(l) == 0) {
-				yRange[i] = Amplitude.at(l)*ROOT::Math::gaussian_pdf(xRange[i],Width.at(l),Location.at(l));
+				yRange[i] = Amplitude.at(l)*ROOT::Math::gaussian_pdf(xRange[i]-delay,Width.at(l),Location.at(l));
 		        	if (ymax < yRange[i]) ymax = yRange[i];
 			}
 		    	if (Shape.at(l) == 1){
-				yRange[i] =  Amplitude.at(l)*ROOT::Math::landau_pdf(xRange[i],Width.at(l),Location.at(l))*2000; // normalisation constant for better
+				yRange[i] =  Amplitude.at(l)*ROOT::Math::landau_pdf(xRange[i]-delay,Width.at(l),Location.at(l))*2000; // normalisation constant for better
 				if (ymax < yRange[i]) ymax = yRange[i];
 		    	}
 		    	gr2->SetPoint(i,xRange[i],yRange[i]);
@@ -987,7 +991,8 @@ void ahdcSignal::PrintAllShapes(const char * filename){
 	TLatex latex2;
 	latex2.SetTextSize(0.025);
 	latex2.SetTextAlign(13);
-	latex2.DrawLatex(tmin, 2*ymax/3,"#bf{#splitline{All shapes are nomalised x 2000}{for a better view}}");
+	//latex2.DrawLatex(tmax/2, 2*ymax/3,"#bf{#splitline{All shapes are nomalised x 2000}{for a better view}}");
+	latex2.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{#splitline{>> All shapes are nomalised x 2000}{>> A delay of #bf{%.2lf ns} as been added}}",delay).Data());
 	// Draw legend
 	// TLegend* legend = new TLegend(tmax-5*xmargin,ymax-5*ymargin,tmax+1*xmargin, ymax+1*ymargin);
 	legend->SetX1(0.82); //tmax-5*xmargin);
@@ -1019,12 +1024,6 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
 	}
     	aMin = 0;
 	// Define canvas
-	//double Dl = lMax - lMin;
-	double Da = aMax - aMin;
-	//double Dw = wMax - wMin;
-	double xmargin = 0.1*(tmax-tmin); // 0.1*Dl; // tmax, tmin are ahdcSignal parameters
-	double ymargin = 0.2*Da;
-	// Define canvas
 	TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768); // canvas1->Range() will set later
 	// Draw graph
 	double ymax = 0;
@@ -1034,7 +1033,7 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
     	TGraph* gr1 = new TGraph(Npts);
     	for (int i=0;i<Npts;i++){
 		double x_ = tmin + i*(tmax-tmin)/Npts;
-		double y_ = this->operator()(x_)*2000; // normalised x 2000 for a better view
+		double y_ = this->operator()(x_);
 		if (ymax < y_) ymax = y_;
 		gr1->SetPoint(i,x_,y_);
     	}
@@ -1044,6 +1043,8 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
 	// gr1->Draw("LF"); 
 	gr1->Draw("L");
 	// Draw axis
+	double xmargin = 0.1*(tmax-tmin); // 0.1*Dl; // tmax, tmin are ahdcSignal parameters
+	double ymargin = 0.2*(ymax-0);
 	TGaxis* ox1 = new TGaxis(tmin-1*xmargin, 0, tmax+1*xmargin, 0, tmin-1*xmargin, tmax+1*xmargin,510,"+-S>");
 	ox1->SetTickSize(0.009);
 	ox1->SetLabelFont(42);
@@ -1051,7 +1052,7 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
 	ox1->SetTitle("time [ns]");
 	ox1->SetTitleSize(0.03);
 	ox1->Draw();
-	TGaxis* oy1 = new TGaxis(0, aMin-1*ymargin, 0, ymax+2*ymargin, aMin-1*ymargin, ymax+2*ymargin,505,"+-S>");
+	TGaxis* oy1 = new TGaxis(0, 0-1*ymargin, 0, ymax+2*ymargin, 0-1*ymargin, ymax+2*ymargin,505,"+-S>");
 	oy1->SetTickSize(0.009);
 	oy1->SetLabelFont(42);
 	oy1->SetLabelSize(0.025);
@@ -1062,7 +1063,12 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
 	TLatex latex1;
 	latex1.SetTextSize(0.04);
 	latex1.SetTextAlign(23);
-	latex1.DrawLatex((tmax+tmin)/2, ymax+2.8*ymargin,"#bf{AHDC signal : sum of all distributions (keV/ns/2000)}");
+	latex1.DrawLatex((tmax+tmin)/2, ymax+2.8*ymargin,"#bf{AHDC signal : sum of all distributions (keV/ns)}");
+	// Draw text
+	TLatex latex2;
+	latex2.SetTextSize(0.03);
+	latex2.SetTextAlign(13);
+	latex2.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{>> A delay of #bf{%.2lf ns} as been added}",delay).Data());
 	// Print file
 	canvas1->Range(tmin-2*xmargin,0-2*ymargin,tmax+2*xmargin,ymax+3*ymargin);
 	canvas1->Print(filename);
@@ -1071,23 +1077,39 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
 	delete canvas1;
 }
 
-void ahdcSignal::GenerateNoise(int Npts, double mean, double stdev){
+void ahdcSignal::GenerateNoise(double mean, double stdev){
+	int Npts = (int) floor( (tmax-tmin)/samplingTime );
 	// define de 1st value
-	std::default_random_engine dseed(time(0)); //seed
+	//std::default_random_engine dseed(time(0)); //seed
+	std::random_device rd;      // Create a random device to seed the generator
+	std::mt19937 gen(rd());     // Create a random number engine (e.g., Mersenne Twister)
 	std::normal_distribution<double> draw1(mean,stdev);
-	Noise.push_back((double) draw1(dseed));
+	// double value = draw1(dseed);
+	double value = draw1(gen);
+	if (value < 0) value = 0;
+	Noise.push_back(value);
 	for (int i=1;i<Npts;i++){
-		std::normal_distribution<double> draw(Noise.at(i-1),stdev);
-		Noise.push_back((double) draw(dseed));
+		//std::normal_distribution<double> draw(Noise.at(i-1),stdev);
+		std::normal_distribution<double> draw(mean,stdev);
+		value = draw(gen);
+		if (value < 0) value = 0;
+		Noise.push_back(value);
 	}
 }
 
-void ahdcSignal::Digitize(int Npts){
-	// to be defined
+void ahdcSignal::Digitize(){
+	int Npts = (int) floor( (tmax-tmin)/samplingTime );
+	for (int i=0;i<Npts;i++) {
+		double value = this->operator()(tmin + i*samplingTime); //in keV
+		value = (int) floor(electronYield*value); // in ADC
+		//int adc = (value < adc_max) ? value : adc_max; // saturation effect // no need here, will be take into account in PrintResult()
+		Dgtz.push_back(value);
+	}
 }
 
 void ahdcSignal::PrintNoise(const char * filename){
-	int Npts = Noise.size();
+	//int Npts = Noise.size();
+	int Npts = 100;
 	if (Npts < 1) {
 		std::cout << " *** Impossible to plot noise : please use fisrt the method GenerateNoise()" << std::endl;
 		return ;
@@ -1111,7 +1133,7 @@ void ahdcSignal::PrintNoise(const char * filename){
 	gr1->Draw("PL");
 	// Draw axis
 	double xmargin = 0.1*(tmax-tmin);
-	double ymargin = 0.2*(ymax-ymin);
+	double ymargin = 0.2*(ymax-0);
 	TGaxis* ox1 = new TGaxis(tmin-1*xmargin, 0, tmax+1*xmargin, 0, tmin-1*xmargin, tmax+1*xmargin,510,"+-S>");
 	ox1->SetTickSize(0.009);
 	ox1->SetLabelFont(42);
@@ -1119,7 +1141,7 @@ void ahdcSignal::PrintNoise(const char * filename){
 	ox1->SetTitle("time [ns]");
 	ox1->SetTitleSize(0.03);
 	ox1->Draw();
-	TGaxis* oy1 = new TGaxis(0, ymin-1*ymargin, 0, ymax+2*ymargin, ymin-1*ymargin, ymax+2*ymargin,505,"+-S>");
+	TGaxis* oy1 = new TGaxis(0, 0-1*ymargin, 0, ymax+2*ymargin, 0-1*ymargin, ymax+2*ymargin,505,"+-S>");
 	oy1->SetTickSize(0.009);
 	oy1->SetLabelFont(42);
 	oy1->SetLabelSize(0.025);
@@ -1132,7 +1154,7 @@ void ahdcSignal::PrintNoise(const char * filename){
 	latex1.SetTextAlign(23);
 	latex1.DrawLatex((tmin+tmax)/2, ymax+2.7*ymargin,"#bf{Generated Noise}");
 	// Print file
-	canvas1->Range(tmin-2*xmargin,ymin-2*ymargin,tmax+2*xmargin,ymax+3*ymargin);
+	canvas1->Range(tmin-2*xmargin,0-2*ymargin,tmax+2*xmargin,ymax+3*ymargin);
 	canvas1->Print(filename);
 	delete gr1;
 	delete ox1; delete oy1; 
@@ -1140,32 +1162,20 @@ void ahdcSignal::PrintNoise(const char * filename){
 
 }
 
-// void ahdcSignal::Digitize(std::vector<double> & dgtz){
-	// dgtz needs to be an empty vector
 void ahdcSignal::PrintDgtz(const char * filename){
-	int nLoc = Location.size();
-	// Determine extrema values
-	double lMax = Location.at(0);
-	double lMin = lMax;
-	for (int l=0;l<nLoc;l++){
-	        if (lMax < Location.at(l)) lMax = Location.at(l);
-	        if (lMin > Location.at(l)) lMin = Location.at(l);
-	}
-	//double margin = 0.1*(tmax - tmin);
-	//double tmin = lMin - margin;
-	//double tmax = lMax + margin;
-	int Npts = (int) floor((tmax-tmin)/samplingTime);
-	//double dt = (tmax - tmin)/Npts;
+	int Npts = Dgtz.size(); 
 	// Histogram
-	TH1D * hist = new TH1D("hist_adc","hist_adc",100,tmin,tmax);
+	TH1D * hist = new TH1D("hist_adc","hist_adc",Npts,tmin,tmax);
+	double ymax = 0;
 	for (int i=0;i<Npts;i++){
-		double value = this->operator()(tmin + i*samplingTime); //in keV
-		value = (int) floor(electronYield*value); // in ADC
-		int adc = (value < adc_max) ? value : adc_max; // saturation effect
-		// dgtz.push_back(adc); // sampling effect
+		//double value = this->operator()(tmin + i*samplingTime); //in keV
+		//value = (int) floor(electronYield*value); // in ADC
+		
+		double value = Dgtz.at(i); // in ADC
+		int adc = (value < adc_max) ? value : adc_max; // saturation effect (redondant for the moment, see .Digitize())
 		for (int j=0;j<adc;j++)
 			hist->Fill(tmin + i*samplingTime);
-		// hist->Fill(tmin + i*dt, adc); 
+		if (ymax < adc) ymax = adc;
 	}
 	
 	// Plot graph 
@@ -1176,9 +1186,49 @@ void ahdcSignal::PrintDgtz(const char * filename){
 	hist->GetYaxis()->SetTitle("adc");
 	hist->GetYaxis()->SetTitleSize(0.05);
 	hist->Draw();
+	// Draw text
+	TLatex latex1;
+	latex1.SetTextSize(0.04);
+	latex1.SetTextAlign(23);
+	latex1.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{>> A delay of #bf{%.2lf ns} as been added}",delay).Data());
 	canvas1->Print(filename);
 	delete hist;
 	delete canvas1;
 
+}
+
+void ahdcSignal::PrintResult(const char * filename){
+	int Npts = Dgtz.size();
+	if (Npts != (int) Noise.size()) {
+		std::cout << " *** Please, make sure Digitize() and GenerateNoise() has been called  before the use of PrintResult()" << std::endl;
+		return ;
+	}
+	
+	TH1D * hist = new TH1D("hist_adc","hist_adc",Npts,tmin,tmax);
+	double ymax = 0;
+	for (int i=0;i<Npts;i++){
+		double value = Dgtz.at(i) + Noise.at(i);
+		int adc = (value < adc_max) ? value : adc_max; // now, that make sense; not like in PrintDgtz() or Digitize()
+		for (int j=0;j<adc;j++)
+			hist->Fill(tmin + i*samplingTime);
+		if (ymax < adc) ymax = adc;
+	}
+
+	// Plot graph
+	TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768);
+	gStyle->SetOptStat("nemruo");
+	hist->GetXaxis()->SetTitle("time [ns]");
+	hist->GetXaxis()->SetTitleSize(0.05);
+	hist->GetYaxis()->SetTitle("adc");
+	hist->GetYaxis()->SetTitleSize(0.05);
+	hist->Draw();
+	// Draw text
+	TLatex latex1;
+	latex1.SetTextSize(0.04);
+	latex1.SetTextAlign(23);
+	latex1.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{>> A delay of #bf{%.2lf ns} as been added}",delay).Data());
+	canvas1->Print(filename);
+	delete hist;
+	delete canvas1;
 }
 
