@@ -85,7 +85,6 @@ public:
 public:
 	// added by Felix
 	void 	ShowMeHitContent	(MHit* aHit, int hitn); // to be modified (I want to center the wire at the origin of the plan, get insired by H_abh or doca calculation
-	void 	ComputeDocaAndTime	(MHit* aHit, std::vector<double> & Height, std::vector<double> & Time); // could it be better to add this in ahdcSignal ? Same for ShowMeHitContent ?
 	
 };
 
@@ -96,68 +95,49 @@ namespace futils {
 #include "Math/PdfFuncMathCore.h"
 
 class ahdcSignal {
-	private :
-		MHit * aHit;
+	// MHit identifiers
+	private : 
 		int hitn;
-		std::vector<double> Location;  // ns   // Geant4 time associated to each step
-		std::vector<double> Amplitude; // keV  // Edep associated to each step
-		void ComputeDocaAndTime();
-		std::vector<double> Height;    // mm   // doca of each step
-		std::vector<double> Time;      // ns   // drift time computed with the doca
-		
-		std::vector<int> Shape;        // allow to have a specific shape associated to each step (ex: gaussians with different std_dev )
-		std::vector<double> Width;     // ns   // width parameter of the Landau distribution
-	private : // for digitization
-		double samplingTime = 44;      // [ns]
-		double electronYield = 9500;   // ADC_gain
-		int adc_max = 50000;           // saturation for digitization
-	private : // for plot
-		double tmin; 
-		double tmax; 
-		double delay = 1000;
-		std::vector<double> Dgtz;
+		int sector;
+		int layer;
+		int component;
+		int nsteps;
+	// vectors
+	private :
+		std::vector<double> Edep; // keV
+		std::vector<double> G4Time; // ns
+		std::vector<double> Doca; //mm
+		std::vector<double> DriftTime; // ns
+		void ComputeDocaAndTime(MHit * aHit);
+		std::vector<double> Dgtz; 
 		std::vector<double> Noise;
-	
+	// setting parameters for digitization
+	private : 
+		double tmin = 0; 
+		double tmax = 6000; 
+		double delay = 1000;
+		double samplingTime = 44;      // ns
+		double electronYield = 9500;   // ADC_gain
+		int    adc_max = 50000;
+	// public methods
 	public :
-		ahdcSignal(MHit * aHit_, int hitn_){
-			aHit = aHit_;
-			hitn = hitn;
-			// to be complete ...
-			std::cout << "     >> Inside ahdcSignal : before this->ComputeDocaAndTime();" << std::endl;
-			this->ComputeDocaAndTime(); // That fills the vectors Height
-			vector<G4double> Edep = aHit->GetEdep(); // à améliorer
-			int nsteps = Edep.size();
-			for (int s=0;s<nsteps;s++){
-				this->Add(Time.at(s),Edep.at(s)*1000,600/2.5,1); // Edep converted in keV
-			}
-		}
-		ahdcSignal(std::vector<double> Location_, std::vector<double> Amplitude_, std::vector<double> Width_, std::vector<int> Shape_){
-			Location = Location_;
-			Amplitude = Amplitude_;
-			Width = Width_;
-			Shape = Shape_;
-		}
 		ahdcSignal() = default;
-		ahdcSignal(const ahdcSignal & obj){
-			Location = obj.Location;
-			Amplitude = obj.Amplitude;
-			Width = obj.Width;
-			Shape = obj.Shape;
-			samplingTime = obj.samplingTime;
-			electronYield = obj.electronYield;
-			adc_max = obj.electronYield;
+		ahdcSignal(MHit * aHit, int hitn_){
+			// read identifiers
+			hitn = hitn_;
+			vector<identifier> identity = aHit->GetId();
+			sector = 0;
+			layer = 10 * identity[0].id + identity[1].id ; // 10*superlayer + layer
+			component = identity[2].id;
+			// fill vectors
+			Edep = aHit->GetEdep();
+			nsteps = Edep.size();
+			for (int s=0;s<nsteps;s++){Edep.at(s) = Edep.at(s)*1000;} // convert MeV to keV
+			G4Time = aHit->GetTime();
+			this->ComputeDocaAndTime(aHit); // fills Doca and DriftTime
 		}
+
 		~ahdcSignal(){;}
-		void Add(double time, double amplitude, double width, int shape){
-			Location.push_back(time);
-			Amplitude.push_back(amplitude);
-			Width.push_back(width);
-			Shape.push_back(shape);
-		}
-		std::vector<double>                     GetAmplitude()		{return Amplitude;}
-		std::vector<double>                     GetLocation() 		{return Location;}
-		std::vector<double>                     GetWidth()		{return Width;}
-		std::vector<int>                        GetShape()		{return Shape;}
 		double 					GetSamplingTime()	 {return samplingTime;}
 		double                                  GetElectronYield()	 {return electronYield;}
 		int	                                GetAdcMax()		 {return adc_max;}
@@ -165,10 +145,6 @@ class ahdcSignal {
 		double                                  GetTmax()               {return tmax;}
 		std::vector<double> 			GetNoise() 		{return Noise;}
 		double 					GetDelay()		{return delay;}
-		void SetAmplitude(std::vector<double> Amplitude_) 	{Amplitude = Amplitude_;}
-		void SetLocation(std::vector<double> Location_)		{Location = Location_;}
-		void SetWidth(std::vector<double> Width_)		{Width = Width_;}
-		void SetShape(std::vector<int> Shape_)			{Shape = Shape_;}
 		void SetSamplingTime(double samplingTime_)			{samplingTime = samplingTime_;}
 		void SetElectronYield(double electronYield_)			{electronYield = electronYield_;}
 		void SetAdcMax(int adc_)				{adc_max = adc_;}
@@ -176,36 +152,23 @@ class ahdcSignal {
 		void SetTmax(double tmax_)                              {tmax = tmax_;}
 		void SetNoise(std::vector<double> Noise_)		{Noise = Noise_;}
 		void SetDelay(double delay_) 				{delay = delay_;}
-		bool is_safe(){
-			int n1 = Location.size();
-			int n2 = Amplitude.size();
-			int n3 = Width.size();
-			int n4 = Shape.size();
-			return (n1 == n2) && (n2 == n3) && (n3 == n4);
-		}
-		// The reason why this class has been created
-		double operator()(double x){
+
+		double operator()(double t){
 			double res = 0;
-			int nLoc = Location.size();
-			for (int l=0;l<nLoc;l++){
-				if (Shape.at(l) == 0) {
-					res += Amplitude.at(l)*ROOT::Math::gaussian_pdf(x-delay,Width.at(l),Location.at(l));
-				}
-				else if (Shape.at(l) == 1){
-					res += Amplitude.at(l)*ROOT::Math::landau_pdf(x-delay,Width.at(l),Location.at(l));
-				}
+			for (int s=0; s<nsteps; s++){
+				res += Edep.at(s)*ROOT::Math::landau_pdf(t-delay,600/2.5,DriftTime.at(s)); // landau width parameter = 600/2.5; think to create a new para.
 			}
-			return res; // in keV
+			return res;
 		}
-		void PrintBeforeProcessing(const char * filename);
-		void PrintAllShapes(const char * filename);
-		void PrintAfterProcessing(const char * filename);
-		void PrintDgtz(const char * filename); // to be modified // change hist by graph ?
-		void PrintNoise(const char * filename); 
-		void PrintResult(const char * filename);
-		
-		void GenerateNoise(double mean, double stdev);
+
 		void Digitize();
+		void GenerateNoise(double mean, double stdev);
+
+		void PrintBeforeProcessing();
+		void PrintAllShapes();
+		void PrintAfterProcessing();
+		void PrintSignal(); // to be modified // change hist by graph ?
+		void PrintNoise(); 
 };
 
 
