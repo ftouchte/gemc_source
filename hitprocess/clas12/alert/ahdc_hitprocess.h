@@ -97,28 +97,40 @@ namespace futils {
 
 class ahdcSignal {
 	private :
-		//MHit * aHit;
-		//int hitn;
-		std::vector<double> Location;  // ns
-		std::vector<double> Amplitude; // keV
-		std::vector<double> Width;     // ns
-		std::vector<int> Shape; // allow to have a specific shape associated to each step (ex: gaussians with different std_dev )
-	private :
-		double samplingTime = 44; // [ns]
-		double electronYield = 9500; // ADC_gain
-		int adc_max = 50000; // saturation for digitization
-	private :
-		double tmin; // for plot
+		MHit * aHit;
+		int hitn;
+		std::vector<double> Location;  // ns   // Geant4 time associated to each step
+		std::vector<double> Amplitude; // keV  // Edep associated to each step
+		void ComputeDocaAndTime();
+		std::vector<double> Height;    // mm   // doca of each step
+		std::vector<double> Time;      // ns   // drift time computed with the doca
+		
+		std::vector<int> Shape;        // allow to have a specific shape associated to each step (ex: gaussians with different std_dev )
+		std::vector<double> Width;     // ns   // width parameter of the Landau distribution
+	private : // for digitization
+		double samplingTime = 44;      // [ns]
+		double electronYield = 9500;   // ADC_gain
+		int adc_max = 50000;           // saturation for digitization
+	private : // for plot
+		double tmin; 
 		double tmax; 
 		double delay = 1000;
 		std::vector<double> Dgtz;
 		std::vector<double> Noise;
+	
 	public :
-		/*ahdcSignal(MHit * aHit_, int hitn_){
+		ahdcSignal(MHit * aHit_, int hitn_){
 			aHit = aHit_;
 			hitn = hitn;
 			// to be complete ...
-		}*/
+			std::cout << "     >> Inside ahdcSignal : before this->ComputeDocaAndTime();" << std::endl;
+			this->ComputeDocaAndTime(); // That fills the vectors Height
+			vector<G4double> Edep = aHit->GetEdep(); // à améliorer
+			int nsteps = Edep.size();
+			for (int s=0;s<nsteps;s++){
+				this->Add(Time.at(s),Edep.at(s)*1000,600/2.5,1); // Edep converted in keV
+			}
+		}
 		ahdcSignal(std::vector<double> Location_, std::vector<double> Amplitude_, std::vector<double> Width_, std::vector<int> Shape_){
 			Location = Location_;
 			Amplitude = Amplitude_;

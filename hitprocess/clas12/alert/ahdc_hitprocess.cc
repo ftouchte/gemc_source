@@ -104,11 +104,12 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	// hist_nsteps.close();
 	
 	int nsteps = Edep.size();
-	vector<double> Height(nsteps);
-	vector<double> Time(nsteps);
-	ahdc_HitProcess::ComputeDocaAndTime(aHit,Height,Time);
+	//vector<double> Height(nsteps);
+	//vector<double> Time(nsteps);
+	//ahdc_HitProcess::ComputeDocaAndTime(aHit,Height,Time);
 	
-	ahdcSignal *Signal = new ahdcSignal();
+	//ahdcSignal *Signal = new ahdcSignal();
+	ahdcSignal *Signal = new ahdcSignal(aHit,hitn);
 	/*double tmin = 0; double tmax = tmin;
 	for (int s=0;s<nsteps;s++){
 		if (tmin > Time.at(s)) tmin = Time.at(s);
@@ -119,21 +120,21 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	//double dT = tmax - tmin;
 	//double width = 0.3*(dT/nsteps); // for example // but too small
 	// Set parameters for digitization
-	Signal->SetTmin(-1000);
-	Signal->SetTmax(8000);
+	Signal->SetTmin(0);
+	Signal->SetTmax(6000);
 	Signal->SetDelay(1000);
 	Signal->SetSamplingTime(44); // ns
 	Signal->SetElectronYield(100000);
 	Signal->SetAdcMax(10000);
 	if (nsteps > 10){
-		// ahdc_HitProcess::ShowMeHitContent(aHit,hitn);
+		//ahdc_HitProcess::ShowMeHitContent(aHit,hitn);
 		// Instantiate Signal
-		for (int s=0;s<nsteps;s++){
-			//int shape_type = rand () % 2;
-			double width = 600/2.5; // value taken in Lucien Causse 's thesis
-			int shape_type = 1;
-			Signal->Add(Time.at(s),Edep.at(s)*1000,width, shape_type); // Edep converted in keV
-		}
+		//for (int s=0;s<nsteps;s++){
+		//	//int shape_type = rand () % 2;
+		//	double width = 600/2.5; // value taken in Lucien Causse 's thesis
+		//	int shape_type = 1;
+		//	Signal->Add(Time.at(s),Edep.at(s)*1000,width, shape_type); // Edep converted in keV
+		//}
 		TString filename1, filename2, filename3, filename4, filename5, filename6;
 		filename1.Form("./output/SignalBeforeProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
 		filename2.Form("./output/SignalAllShapes_%d_%d_%d_%d.pdf",hitn,sector,layer,component);
@@ -157,6 +158,8 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 		//std::cout << "   width  : " << width << std::endl;
 		//std::cout << "   Shape  : " << Signal.GetShape().at(0) << " " << Signal.GetShape().at(1) << " "<< Signal.GetShape().at(2) << " " << std::endl;
 		//std::cout << "   Signal : " << Signal(Time.at(0)) << " " << Signal(Time.at(1)) << " " <<  Signal(Time.at(2)) << " "  << std::endl;
+		int pid = aHit->GetPID();
+		std::cout << "   ===>  pid : " << pid << std::endl;
 	}
 	
 	delete Signal;
@@ -714,7 +717,7 @@ void ahdc_HitProcess::ShowMeHitContent(MHit* aHit, int hitn){
 }
 
 
-void ahdc_HitProcess::ComputeDocaAndTime(MHit* aHit, std::vector<double> & Height, std::vector<double> & Time){
+void ahdcSignal::ComputeDocaAndTime(){
 	vector<G4ThreeVector> Lpos        = aHit->GetLPos();
 	int nsteps = Lpos.size();
 	double LposX, LposY, LposZ;
@@ -738,6 +741,18 @@ void ahdc_HitProcess::ComputeDocaAndTime(MHit* aHit, std::vector<double> & Heigh
 	double xV7 = 0.0;
 	double yV7 = 0.0;
 	double dim_id_2, dim_id_8;
+	
+	// ******** cout alert geometry ***********
+	// 
+	// ****************************************
+	/*if (nsteps > 10) {
+		std::cout << "     ===> alert geometry, geant4 type :   " << aHit->GetDetector().type << std::endl;
+		std::cout << "     ===> alert geometry, geant4 type :   " << aHit->GetDetector().dimensions.size() << std::endl;
+		for (int i=0;i< (int) aHit->GetDetector().dimensions.size() ;i++) {
+		std::cout << "     dim_%d" << i << " : "  << aHit->GetDetector().dimensions[i] << std::endl;
+		}
+	}*/
+	// ******** end cout *********************
 
 	dim_id_2 = aHit->GetDetector().dimensions[2];
 	dim_id_8 = aHit->GetDetector().dimensions[8];
@@ -791,7 +806,8 @@ void ahdc_HitProcess::ComputeDocaAndTime(MHit* aHit, std::vector<double> & Heigh
 		// Compute the height of a triangular (see documentation for the demonstration of the formula)
 		H_abh = L_ah*sqrt(1 - pow((L_ah*L_ah + L_ab*L_ab - L_bh*L_bh)/(2*L_ah*L_ab),2)); // this is the d.o.c.a of a given hit (!= MHit)
 		//if (doca > H_abh) doca = H_abh; 
-		Height.at(s) = H_abh;
+		//Height.at(s) = H_abh;
+		Height.push_back(H_abh);
 		// Add a resolution on doca
 		double docasig = 337.3-210.3*H_abh+34.7*pow(H_abh,2); // um // fit sigma vs distance // Fig 4.14 (right), L. Causse's thesis
 		docasig = docasig/1000; // mm
@@ -799,7 +815,8 @@ void ahdc_HitProcess::ComputeDocaAndTime(MHit* aHit, std::vector<double> & Heigh
 		std::normal_distribution<double> docadist(H_abh, docasig);
 		// Compute time
 		double driftTime = 7*H_abh + 7*pow(H_abh,2) + 4*pow(H_abh,3); // fit t vs distance //  Fig 4.12 (right), L. Causse's thesis
-		Time.at(s) = driftTime; // ns
+		//Time.at(s) = driftTime; // ns
+		Time.push_back(driftTime);
 
 		 // if ((s==0) and (nsteps > 10)) {
 		 //	 std::cout << "=======> Inside ComputeDocaAndTime" << std::endl;		 	
@@ -955,7 +972,7 @@ void ahdcSignal::PrintAllShapes(const char * filename){
 		        	if (ymax < yRange[i]) ymax = yRange[i];
 			}
 		    	if (Shape.at(l) == 1){
-				yRange[i] =  Amplitude.at(l)*ROOT::Math::landau_pdf(xRange[i]-delay,Width.at(l),Location.at(l))*2000; // normalisation constant for better
+				yRange[i] =  Amplitude.at(l)*ROOT::Math::landau_pdf(xRange[i]-delay,Width.at(l),Location.at(l))*1000; // normalisation constant for better
 				if (ymax < yRange[i]) ymax = yRange[i];
 		    	}
 		    	gr2->SetPoint(i,xRange[i],yRange[i]);
@@ -992,7 +1009,7 @@ void ahdcSignal::PrintAllShapes(const char * filename){
 	latex2.SetTextSize(0.025);
 	latex2.SetTextAlign(13);
 	//latex2.DrawLatex(tmax/2, 2*ymax/3,"#bf{#splitline{All shapes are nomalised x 2000}{for a better view}}");
-	latex2.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{#splitline{>> All shapes are nomalised x 2000}{>> A delay of #bf{%.2lf ns} as been added}}",delay).Data());
+	latex2.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{#splitline{All shapes are nomalised x 1000}{A delay of #bf{%.1lf ns} as been added}}",delay).Data());
 	// Draw legend
 	// TLegend* legend = new TLegend(tmax-5*xmargin,ymax-5*ymargin,tmax+1*xmargin, ymax+1*ymargin);
 	legend->SetX1(0.82); //tmax-5*xmargin);
@@ -1068,7 +1085,7 @@ void ahdcSignal::PrintAfterProcessing(const char *filename){
 	TLatex latex2;
 	latex2.SetTextSize(0.03);
 	latex2.SetTextAlign(13);
-	latex2.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{>> A delay of #bf{%.2lf ns} as been added}",delay).Data());
+	latex2.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{A delay of #bf{%.1lf ns} as been added}",delay).Data());
 	// Print file
 	canvas1->Range(tmin-2*xmargin,0-2*ymargin,tmax+2*xmargin,ymax+3*ymargin);
 	canvas1->Print(filename);
@@ -1089,8 +1106,8 @@ void ahdcSignal::GenerateNoise(double mean, double stdev){
 	if (value < 0) value = 0;
 	Noise.push_back(value);
 	for (int i=1;i<Npts;i++){
-		//std::normal_distribution<double> draw(Noise.at(i-1),stdev);
-		std::normal_distribution<double> draw(mean,stdev);
+		std::normal_distribution<double> draw(Noise.at(i-1),stdev);
+		//std::normal_distribution<double> draw(mean,stdev);
 		value = draw(gen);
 		if (value < 0) value = 0;
 		Noise.push_back(value);
@@ -1190,7 +1207,8 @@ void ahdcSignal::PrintDgtz(const char * filename){
 	TLatex latex1;
 	latex1.SetTextSize(0.04);
 	latex1.SetTextAlign(23);
-	latex1.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{>> A delay of #bf{%.2lf ns} as been added}",delay).Data());
+	//latex1.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{A delay of #bf{%.1lf ns} as been added}",delay).Data());
+	// Print file
 	canvas1->Print(filename);
 	delete hist;
 	delete canvas1;
@@ -1226,7 +1244,8 @@ void ahdcSignal::PrintResult(const char * filename){
 	TLatex latex1;
 	latex1.SetTextSize(0.04);
 	latex1.SetTextAlign(23);
-	latex1.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{>> A delay of #bf{%.2lf ns} as been added}",delay).Data());
+	//latex1.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{>> A delay of #bf{%.2lf ns} as been added}",delay).Data());
+	// Print file
 	canvas1->Print(filename);
 	delete hist;
 	delete canvas1;
