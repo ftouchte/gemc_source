@@ -77,9 +77,16 @@ map<string, double> ahdc_HitProcess::integrateDgt(MHit* aHit, int hitn) {
 	}
 
 	ahdcSignal *Signal = new ahdcSignal(aHit,hitn,0,6000,1000,44,240);
-	Signal->SetElectronYield(100000);
+	Signal->SetElectronYield(50000);
 	Signal->Digitize();
-	std::map<std::string,double> output = Signal->Extract();
+
+	bool condition = Signal->nsteps > 10;
+	Signal->PrintBeforeProcessing(condition);
+	Signal->PrintAllShapes(condition);
+	Signal->PrintAfterProcessing(condition);
+	Signal->PrintNoise(condition);
+	Signal->PrintSignal(condition);
+	std::map<std::string,double> output = Signal->Extract(condition);
 
 	dgtz["hitn"]      = hitn;
 	dgtz["sector"]    = sector;
@@ -312,11 +319,11 @@ double ahdcSignal::GetMCEtot(){
 }
 
 #include <TString.h>
-std::map<std::string,double> ahdcSignal::Extract(){
+std::map<std::string,double> ahdcSignal::Extract(bool expression){
 	ahdcExtractor T(samplingTime,0.5f,5,0.3f);
 	T.adcOffset = (short) (Dgtz[0] + Dgtz[1] + Dgtz[2] + Dgtz[3] + Dgtz[4])/5;
 	std::map<std::string,double> output = T.extract(Dgtz);
-	if (nsteps > 10){
+	if (expression){
 		T.Show(TString::Format("./output/SignalDecoded_%d_%d_%d_%d.pdf",hitn,sector,layer,component).Data());
 		T.ShowCFD(TString::Format("./output/SignalCFD_%d_%d_%d_%d.pdf",hitn,sector,layer,component).Data());
 	}
@@ -604,4 +611,248 @@ void ahdcExtractor::ShowCFD(const char * filename){
 	canvas1->Print(filename);
         delete gr1; delete gr2; delete canvas1;
         delete axis1; delete legend;
+}
+
+void ahdcSignal::PrintBeforeProcessing(bool expression){
+	if (!expression) {return ;}
+        TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768);
+        // Draw stems
+        TGraph* gr1 = new TGraph(nsteps);
+        double ymax = 0;
+        for (int s=0;s<nsteps;s++){
+                // Draw points
+                gr1->SetPoint(s,DriftTime.at(s),Edep.at(s));
+                if (ymax < Edep.at(s)) ymax = Edep.at(s);
+        }
+        // Draw graph
+        //gr1->SetTitle("Deposited energy in each steps");
+        gr1->SetTitle("");
+        gr1->GetXaxis()->SetTitle("DriftTime (ns)");
+        gr1->GetYaxis()->SetTitle("Edep (keV)");
+        gr1->SetMarkerStyle(20);
+        gr1->SetMarkerColor(kRed);
+        gr1->SetMarkerSize(2);
+        gr1->GetYaxis()->SetRangeUser(0,ymax+0.05*ymax);
+        gr1->Draw("AP");
+        for (int s=0;s<nsteps;s++){
+                // Draw lines
+                TLine* line = new TLine(DriftTime.at(s),0,DriftTime.at(s),Edep.at(s));
+                line->SetLineWidth(1);
+                line->SetLineColor(kBlack);
+                line->Draw();
+        }
+
+        canvas1->Print(TString::Format("./output/SignalBeforeProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component));
+        delete gr1;
+        delete canvas1;
+}
+
+void ahdcSignal::PrintAllShapes(bool expression){
+	if (!expression) {return ;}
+	using namespace Genfun;
+        TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768);
+        TLegend* legend = new TLegend();
+        // Draw all shapes
+        int Npts = 1000;
+        double ymax=0;
+        int s_ref=0;
+        // Define ymax and s_ref
+        for (int s=0;s<nsteps;s++){
+                double xRange[Npts], yRange[Npts];
+                for (int i=0;i<Npts;i++){
+			// setting Landau's parameters
+                        Landau L;
+                        L.peak() = Parameter("Peak",DriftTime.at(s),tmin,tmax);
+                        L.width() = Parameter("Width",Landau_width,0,400);
+                        xRange[i] = tmin + i*(tmax-tmin)/Npts;
+                        //yRange[i] =  Edep.at(s)*ROOT::Math::landau_pdf(xRange[i]-timeOffset,600/2.5,DriftTime.at(s))*1000; // normalisation constant for better
+                        yRange[i] =  Edep.at(s)*L(xRange[i]-timeOffset)*1000; // normalisation constant for better view
+			if (ymax < yRange[i]) {ymax = yRange[i]; s_ref = s;}
+                }
+        }
+        for (int s=0;s<nsteps;s++){
+                if (ymax < Edep.at(s))
+                        ymax = Edep.at(s);
+        }
+        // plot each distribation
+        {       // In s_ref
+                TGraph* gr2 = new TGraph(Npts);
+                double xRange[Npts], yRange[Npts];
+                for (int i=0;i<Npts;i++){
+			Landau L;
+                        L.peak() = Parameter("Peak",DriftTime.at(s_ref),tmin,tmax);
+                        L.width() = Parameter("Width",Landau_width,0,400);
+                        xRange[i] = tmin + i*(tmax-tmin)/Npts;
+                        //yRange[i] =  Edep.at(s_ref)*ROOT::Math::landau_pdf(xRange[i]-timeOffset,600/2.5,DriftTime.at(s_ref))*1000; // normalisation constant for a better view
+                        yRange[i] =  Edep.at(s_ref)*L(xRange[i]-timeOffset)*1000; // normalisation constant for better view
+			gr2->SetPoint(i,xRange[i],yRange[i]);
+                }
+                gr2->SetLineColor(s_ref+1);
+                gr2->SetFillColorAlpha(2+s_ref%38,1.0);
+                gr2->SetFillStyle(3001);
+                //gr2->SetTitle("Spreed of each Edep over the time using a Landau distribution");
+                gr2->SetTitle("");
+                gr2->GetXaxis()->SetTitle("Time (ns)");
+                gr2->GetYaxis()->SetTitle("#frac{d Edep}{dt} (keV/ns)");
+                gr2->GetYaxis()->SetRangeUser(0,ymax+0.05*ymax);
+                gr2->Draw("AL"); // we use the axis of s_ref as reference
+
+        }
+        for (int s=0;s<nsteps;s++){
+                if (s == s_ref) continue;
+                else {
+                        TGraph* gr2 = new TGraph(Npts);
+                        double xRange[Npts], yRange[Npts];
+                        for (int i=0;i<Npts;i++){
+				Landau L;
+	                        L.peak() = Parameter("Peak",DriftTime.at(s),tmin,tmax);
+        	                L.width() = Parameter("Width",Landau_width,0,400);
+                                xRange[i] = tmin + i*(tmax-tmin)/Npts;
+                                //yRange[i] =  Edep.at(s)*ROOT::Math::landau_pdf(xRange[i]-timeOffset,600/2.5,DriftTime.at(s))*1000; // normalisation constant for a better view
+                                yRange[i] =  Edep.at(s)*L(xRange[i]-timeOffset)*1000; // normalisation constant for better view
+				gr2->SetPoint(i,xRange[i],yRange[i]);
+                        }
+                        gr2->SetLineColor(s+1);
+                        gr2->SetFillColorAlpha(2+s%38,1.0);
+                        gr2->SetFillStyle(3001);
+                        gr2->Draw("L");
+                        legend->AddEntry(gr2,TString::Format("Shape %d",s),"l");
+                }
+        }
+        // Draw stems
+        TGraph* gr1 = new TGraph(nsteps);
+        for (int s=0;s<nsteps;s++){
+                // Draw points
+                gr1->SetPoint(s,DriftTime.at(s)+timeOffset,Edep.at(s));
+        }
+        gr1->SetMarkerStyle(20);
+        gr1->SetMarkerColor(kRed);
+        gr1->SetMarkerSize(2);
+        gr1->Draw("P");
+        for (int s=0;s<nsteps;s++){
+                // Draw lines
+                TLine* line = new TLine(DriftTime.at(s)+timeOffset,0,DriftTime.at(s)+timeOffset,Edep.at(s));
+                line->SetLineWidth(1);
+                line->SetLineColor(kBlack);
+                line->Draw();
+        }
+        // Draw text
+        TLatex latex2;
+        latex2.SetTextSize(0.025);
+        latex2.SetTextAlign(13);
+        //latex2.DrawLatex(tmax/2, 2*ymax/3,"#bf{#splitline{All shapes are nomalised x 2000}{for a better view}}");
+        latex2.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{#splitline{All shapes are nomalised x 1000}{A timeOffset of #bf{%.1lf ns} as been added}}",timeOffset).Data());
+        // Draw legend
+        legend->SetX1(0.82);
+        legend->SetY1(0.3);
+        legend->SetX2(0.95);
+        legend->SetY2(0.95);
+        legend->AddEntry(gr1,"Edep in each steps","p");
+        legend->Draw();
+        // Print file
+        canvas1->Print(TString::Format("./output/SignalAllShapes_%d_%d_%d_%d.pdf",hitn,sector,layer,component));
+        delete gr1; delete legend;
+        delete canvas1;
+}
+
+void ahdcSignal::PrintAfterProcessing(bool expression){
+	if (!expression) {return ;}
+        TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768);
+        // Draw graph
+        double ymax = 0;
+        int Npts = 1000;
+        TGraph* gr1 = new TGraph(Npts);
+        for (int i=0;i<Npts;i++){
+                double x_ = tmin + i*(tmax-tmin)/Npts;
+                double y_ = this->operator()(x_);
+                if (ymax < y_) ymax = y_;
+                gr1->SetPoint(i,x_,y_);
+        }
+        gr1->SetLineColor(kBlue);
+        gr1->SetFillColorAlpha(kBlue,1.0);
+        gr1->SetFillStyle(3001);
+        gr1->SetTitle("");
+        //gr1->SetTitle(TString::Format("%s : p = □  MeV, #theta = □  deg, #phi = □  deg",pid2name[pid].data()));
+        gr1->GetXaxis()->SetTitle("Time (ns)");
+        gr1->GetYaxis()->SetTitle("#frac{d Edep}{dt} (keV/ns)");
+        //gr1->Draw("ALF");
+        gr1->Draw("AL");
+        // Draw text
+        TLatex latex2;
+        latex2.SetTextSize(0.03);
+        latex2.SetTextAlign(13);
+        //latex2.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{A timeOffset of #bf{%.1lf ns} as been added}",timeOffset).Data());
+        // Print file
+        canvas1->Print(TString::Format("./output/SignalAfterProcessing_%d_%d_%d_%d.pdf",hitn,sector,layer,component));
+        delete gr1;
+        delete canvas1;
+}
+
+void ahdcSignal::PrintNoise(bool expression){
+	if (!expression) {return ;}
+        //int Npts = Noise.size();
+        int Npts = 100;
+        // Define canvas
+        TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768);
+        // Draw graph
+        double dt = (tmax-tmin)/Npts;
+        TGraph* gr1 = new TGraph(Npts);
+        for (int i=0;i<Npts;i++){
+                gr1->SetPoint(i,tmin + i*dt,Noise.at(i));
+        }
+        gr1->SetLineColor(kBlue);
+        gr1->SetMarkerColor(kRed);
+        gr1->SetMarkerStyle(20);
+        gr1->SetMarkerSize(1);
+        gr1->SetTitle("");
+        gr1->GetXaxis()->SetTitle("Time (ns)");
+        gr1->GetYaxis()->SetTitle("Noise (adc)");
+        gr1->Draw("APL");
+        // Print file
+        canvas1->Print(TString::Format("./output/SignalNoise_%d_%d_%d_%d.pdf",hitn,sector,layer,component));
+        delete gr1;
+        delete canvas1;
+}
+
+void ahdcSignal::PrintSignal(bool expression){
+	if (!expression) {return ;}
+        int Npts = Dgtz.size();
+        // Histogram
+        TH1D * hist = new TH1D("hist_adc","hist_adc",Npts,tmin,tmax);
+        TGraph* gr1 = new TGraph(Npts);
+        double ymax = 0;
+        for (int i=0;i<Npts;i++){
+                int adc = Dgtz.at(i); // in ADC
+                for (int j=0;j<adc;j++)
+                        hist->Fill(tmin + i*samplingTime);
+                if (ymax < adc) ymax = adc;
+                gr1->SetPoint(i,tmin + i*samplingTime,adc);
+        }
+
+        // Plot graph
+        TCanvas* canvas1 = new TCanvas("c1","c1 title",1366,768);
+        
+	gr1->SetTitle("");
+        //gr1->SetTitle(TString::Format("%s : p = #Box MeV, #theta = #Box deg, #phi = #Box deg",pid2name[pid].data()));
+        gr1->GetXaxis()->SetTitle("Time (ns)");
+        gr1->GetYaxis()->SetTitle("Charge (adc)");
+        //gr1->GetYaxis()->SetRangeUser(0,ymax+0.05*ymax);
+        gr1->SetLineColor(kBlue);
+        gr1->SetMarkerStyle(1);
+        gr1->SetMarkerSize(5);
+        gr1->SetMarkerColor(kRed);
+        //gr1->SetFillColorAlpha(kBlue,1.0);
+        //gr1->SetFillStyle(3001);
+        gr1->Draw("APL");
+
+        // Draw text
+        TLatex latex1;
+        latex1.SetTextSize(0.04);
+        latex1.SetTextAlign(23);
+        //latex1.DrawLatex(tmax/2, 2*ymax/3,TString::Format("#bf{A timeOffset of #bf{%.1lf ns} as been added}",timeOffset).Data());
+        // Print file
+        canvas1->Print(TString::Format("./output/SignalDigitized_%d_%d_%d_%d.pdf",hitn,sector,layer,component));
+        delete hist;
+        delete gr1;
+        delete canvas1;
 }

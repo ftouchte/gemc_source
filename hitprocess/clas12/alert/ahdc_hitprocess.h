@@ -234,7 +234,13 @@ class ahdcSignal {
 		 * - `binMax`, `binOffset`, `adcMax`, `timeMax`, `integral` 
 		 * - `timeRiseCFA`, `timeFallCFA`, `timeOverThresholdCFA`, `timeCFD` 
 		 */
-		std::map<std::string,double> Extract();
+		std::map<std::string,double> Extract(bool expression = true);
+
+		void PrintBeforeProcessing(bool expression = true); // e.g : this->PrintBeforeProcessing(this->nsteps > 10)
+		void PrintAllShapes(bool expression = true);
+		void PrintAfterProcessing(bool expression = true);
+		void PrintNoise(bool expression = true);
+		void PrintSignal(bool expression = true);
 };
 
 
