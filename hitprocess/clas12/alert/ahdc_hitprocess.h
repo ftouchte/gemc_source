@@ -232,7 +232,7 @@ class ahdcSignal {
 		 *
 		 * This method computes
 		 * - `binMax`, `binOffset`, `adcMax`, `timeMax`, `integral` 
-		 * - `timeRiseCFA`, `timeFallCFA`, `timeOverThresholdCFA`, `timeCFD` 
+		 * - `leadingEdgeTime`, `trailingEdgeTime`, `timeOverThreshold`, `constantFractionTime` 
 		 */
 		std::map<std::string,double> Extract();
 };
@@ -265,10 +265,10 @@ class ahdcExtractor {
 		std::vector<short> samplesCorr; ///< Waveform after offset (pedestal) correction
                 int binNumber; ///< Number of bins in one waveform
 
-                float timeRiseCFA; ///< moment when the signal reaches a Constant Fraction of its Amplitude uphill (fitted)
-                float timeFallCFA; ///< moment when the signal reaches a Constant Fraction of its Amplitude downhill (fitted)
-                float timeOverThresholdCFA; ///< is equal to (timeFallCFA - timeRiseCFA)
-                float timeCFD; ///< time extracted using the Constant Fraction Discriminator (CFD) algorithm (fitted)
+                float leadingEdgeTime; ///< moment when the signal reaches a Constant Fraction of its Amplitude uphill (fitted)
+                float trailingEdgeTime; ///< moment when the signal reaches a Constant Fraction of its Amplitude downhill (fitted)
+                float timeOverThreshold; ///< is equal to (trailingEdgeTime - leadingEdgeTime)
+                float constantFractionTime; ///< time extracted using the Constant Fraction Discriminator (CFD) algorithm (fitted)
 
 		/** @brief Default constructor */
 		ahdcExtractor() = default;
@@ -322,7 +322,7 @@ class ahdcExtractor {
 
 		/**
 		 * This method determines the moment when the signal reaches a Constant Fraction of its Amplitude (i.e amplitudeFraction*adcMax)
-		 * It fills the attributs : `timeRiseCFA`, `timeFallCFA`, `timeOverThresholdCFA`
+		 * It fills the attributs : `leadingEdgeTime`, `trailingEdgeTime`, `timeOverThreshold`
 		 * 
 		 * Parameter dependency :
 		 * - `samplingTime` time between 2 ADC bins
@@ -332,7 +332,7 @@ class ahdcExtractor {
 
 		/**
 		 * This methods extracts a time using the Constant Fraction Discriminator (CFD) algorithm
-		 * It fills the attribut : `timeCFD`
+		 * It fills the attribut : `constantFractionTime`
 		 *
 		 * Parameter dependency :
 		 * - `samplingTime` time between 2 ADC bins
